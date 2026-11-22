@@ -1,3 +1,4 @@
+// Home: hero search plus a plain statement of what RecallIQ can and cannot tell you.
 import Link from "next/link";
 import { LabelScanVisual } from "@/components/brand/LabelScanVisual";
 import { HeroSearch } from "@/components/search/HeroSearch";

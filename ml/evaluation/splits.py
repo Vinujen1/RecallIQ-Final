@@ -87,6 +87,7 @@ def extract_brand(title: str) -> str | None:
 
 @dataclass(frozen=True)
 class SplitRecord:
+    """The fields of one notice that decide its group and stratum."""
     recall_id: int
     title: str
     title_group: str
@@ -98,6 +99,8 @@ class SplitRecord:
 
 @dataclass
 class Group:
+    """Notices that must land in the same split (same product / re-notice / related event),
+    with the human-readable reasons they were joined."""
     group_id: str
     recall_ids: list[int]
     rationale: list[str]
@@ -111,12 +114,14 @@ def product_key_tokens(title: str) -> frozenset[str]:
 
 
 def jaccard(a: frozenset[str], b: frozenset[str]) -> float:
+    """|A ∩ B| / |A ∪ B| of product-key tokens; 0 for an empty side (no evidence of overlap)."""
     if not a or not b:
         return 0.0
     return len(a & b) / len(a | b)
 
 
 def load_split_records(db_path: Path) -> list[SplitRecord]:
+    """Read the corpus read-only and derive each notice's product-key tokens."""
     connection = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True)
     try:
         rows = connection.execute(
@@ -159,6 +164,13 @@ def build_groups(
     ambiguous_threshold: float = AMBIGUOUS_JACCARD,
     manual_links: tuple[tuple[int, int, str], ...] = MANUAL_LINKS,
 ) -> tuple[list[Group], list[dict]]:
+    """Union-find over notices that would leak information if split apart.
+
+    Splitting by record is not enough: the same product is often recalled twice with slightly
+    different titles, and a model trained on one notice would "recognise" its twin in the
+    test split. Notices are merged when they share a title group, have product-key Jaccard
+    >= `merge_threshold`, share a brand, or are manually linked. Pairs between the two
+    thresholds are returned as `ambiguous` for human review instead of being guessed."""
     by_id = {r.recall_id: r for r in records}
     uf = _UnionFind(sorted(by_id))
     reasons: dict[int, list[str]] = defaultdict(list)  # keyed by member id
@@ -440,6 +452,7 @@ def _dataset_metadata(db_path: Path) -> dict:
 
 
 def write_manifest(manifest: dict, path: Path = DEFAULT_MANIFEST) -> None:
+    """Write the manifest (JSON) and a flat recall_id,split,group_id CSV, atomically."""
     path.parent.mkdir(parents=True, exist_ok=True)
     _atomic_write(path, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
     group_of = {i: g["group_id"] for g in manifest["groups"] for i in g["recall_ids"]}
@@ -451,6 +464,7 @@ def write_manifest(manifest: dict, path: Path = DEFAULT_MANIFEST) -> None:
 
 
 def load_manifest(path: Path = DEFAULT_MANIFEST) -> dict:
+    """Read the split manifest, with a hint on how to create it if missing."""
     if not path.is_file():
         raise FileNotFoundError(
             f"Split manifest not found: {path}. Run `python -m evaluation.splits` first."
@@ -459,10 +473,12 @@ def load_manifest(path: Path = DEFAULT_MANIFEST) -> dict:
 
 
 def split_lookup(manifest: dict) -> dict[int, str]:
+    """recall_id -> "train" | "validation" | "test"."""
     return {int(rid): split for rid, split in manifest["assignments"].items()}
 
 
 def manifest_sha256(path: Path) -> str:
+    """Hash of the exact manifest file, recorded with results to prove which split was used."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 

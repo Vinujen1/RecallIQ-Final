@@ -32,6 +32,12 @@ def tokenize(text: str) -> list[str]:
 
 
 class BM25Index:
+    """Okapi BM25 over pre-tokenised documents.
+
+    k1 controls term-frequency saturation (the 5th "salmonella" adds little), b controls
+    length normalisation (long notices are not favoured just for containing more words).
+    IDF uses the +1 variant so very common terms never get a negative weight."""
+
     def __init__(self, documents: list[str], k1: float = 1.5, b: float = 0.75) -> None:
         if not documents:
             raise ValueError("BM25 needs at least one document")

@@ -1,3 +1,4 @@
+// Root layout: fonts, theme bootstrap (no flash of the wrong theme), header and footer.
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Manrope } from "next/font/google";
 import { SiteFooter } from "@/components/layout/SiteFooter";

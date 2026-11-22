@@ -40,6 +40,24 @@ HAND_WRITTEN_ROWS: list[dict[str, str]] = [
      "Category": "Drugs", "Last updated": "2024-02-02", "Archived": "0"},
 ]
 
+_LLM_ENV = ("RECALLIQ_LLM_PROVIDER", "OPENAI_API_KEY", "RECALLIQ_OPENAI_API_KEY",
+            "RECALLIQ_OPENAI_MODEL")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_llm_calls(monkeypatch):
+    """Tests never reach OpenAI: a developer's real key/provider in the shell is hidden, and
+    the client factory raises unless a test injects a fake client."""
+    for name in _LLM_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+    def _blocked(config):
+        raise AssertionError("real OpenAI client requested in a test; inject a fake client")
+
+    import rag.llm
+    monkeypatch.setattr(rag.llm, "get_client", _blocked)
+
+
 ELIGIBLE_HAND_WRITTEN = 5  # ids 1-5
 EXCLUDED_HAND_WRITTEN = 3  # ids 6-8
 
@@ -97,6 +115,52 @@ class FakeEncoder:
             for token in tokenize(text):
                 matrix[row, 1 + zlib.crc32(token.encode()) % (self.dimension - 1)] += 1.0
         return matrix / np.linalg.norm(matrix, axis=1, keepdims=True)
+
+
+class FakeOpenAI:
+    """Stand-in for openai.OpenAI in tests: `.chat.completions.create(**kw)` records the call
+    and returns a canned structured-output response (or raises `error`)."""
+
+    def __init__(self, answer: str = "", cited: list[int] | None = None, sufficient: bool = True,
+                 *, content: str | None = None, error: Exception | None = None,
+                 finish_reason: str = "stop", refusal: str | None = None,
+                 model: str = "gpt-4o-mini-2024-07-18"):
+        import json
+        from types import SimpleNamespace
+
+        self.calls: list[dict] = []
+        self.error = error
+        body = content if content is not None else json.dumps(
+            {"answer": answer, "cited_recall_ids": cited or [], "evidence_sufficient": sufficient})
+        self.response = SimpleNamespace(
+            model=model,
+            choices=[SimpleNamespace(finish_reason=finish_reason,
+                                     message=SimpleNamespace(content=body, refusal=refusal))],
+            usage=SimpleNamespace(prompt_tokens=812, completion_tokens=96, total_tokens=908))
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+    def _create(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+
+def openai_error(kind: str) -> Exception:
+    """Real openai exception instances (no network) for failure-path tests."""
+    import httpx
+    import openai
+
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    if kind == "timeout":
+        return openai.APITimeoutError(request=request)
+    if kind == "connection":
+        return openai.APIConnectionError(request=request)
+    status, cls = {"rate_limit": (429, openai.RateLimitError),
+                   "auth": (401, openai.AuthenticationError),
+                   "not_found": (404, openai.NotFoundError),
+                   "server": (500, openai.InternalServerError)}[kind]
+    return cls(kind, response=httpx.Response(status, request=request), body=None)
 
 
 def build_fake_embeddings(db_path: Path, out_dir: Path) -> Path:

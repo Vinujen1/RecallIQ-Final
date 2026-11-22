@@ -23,6 +23,8 @@ train docs ─► generated (query, recall) pairs ─┬─► Model B: MiniLM +
              + mined/human-verified negatives ─┴─► Model C: MiniLM + MNRL + 1 hard negative
 query ─► {BM25 | MiniLM (A) | Model B | Model C} ─► top-10 recalls ─► identifier verifier
         (UPC/model/lot/best-before: match / mismatch / unknown) ─► FastAPI ─► Next.js UI
+POST /explain: top notices ─► evidence (≤ 3) ─► GPT-4o-mini (strict JSON, cited ids)
+        ─► deterministic grounding guards ─► answer | template fallback (+ reason)
 validation: generated-query proxy (now) | reviewed human queries (pending); test: sealed
 ```
 
@@ -57,6 +59,7 @@ curl -X POST localhost:8000/search -H "Content-Type: application/json" \
      -d '{"query": "heater model XJ-500 overheating", "model": "minilm_hard_negative", "top_k": 5}'
 curl -X POST localhost:8000/explain -H "Content-Type: application/json" \
      -d '{"query": "NordicTrack rowing machine model NTRW19147 fire", "model": "minilm_finetuned"}'
+python -m app.llm_check --generate   # needs RECALLIQ_LLM_PROVIDER=openai + OPENAI_API_KEY in backend/.env
 ```
 Verified 2026-11-16 on port 8011: all four models 200; good demo cases — the XJ-500 query
 (BM25 ranks a Thermosphere heater first; the verifier marks it MISMATCH, `EH4604BY`) and the
@@ -75,22 +78,34 @@ UNKNOWN, not an over-claimed MATCH). First MiniLM request loads the model (~15�
   CI [+0.022, +0.056]. C − B and fine-tuned − BM25 differences are within noise.
 - Identifier verifier implemented, unit-tested and live in the API; identifier precision
   **not computable** yet (no identifier-bearing queries; 6/1,000 records list identifiers).
+- GPT-powered RAG (`POST /explain`, `docs/RAG.md`): GPT-4o-mini writes a summary from at most
+  3 retrieved notices; it is shown only if deterministic guards pass (codes, ids, names and
+  quotes must appear in the evidence; no foreign links; no "safe"/"not recalled" claims; no
+  code-match claim without a verifier MATCH); otherwise a deterministic template is shown
+  with the reason. Every OpenAI failure path is covered by mocked tests; the live OpenAI
+  check and the website were confirmed working by the project owner on 2026-11-18.
 
 ## Cannot be claimed yet
 - Any retrieval quality on consumer-written queries (0 reviewed human queries).
 - That hard negatives meaningfully help: across 3 seeds C beat B on proxy MRR@10 every
   time, but only by +0.0023 on average (sd 0.0013) on a saturated proxy (`experiments/reports/seeds.md`).
-- Identifier-verification precision; RAG explanations (not started).
+- Identifier-verification precision.
+- Quality of the RAG summaries: the guards bound what an answer can assert, but answers have
+  not been rated by people on a query set yet (remaining work #6).
+- A measured AI-answer acceptance rate. Live checks on 2026-11-19 found and fixed three
+  false-rejection causes (two guard bugs; the rag-v2 prompt itself asking for "not listed",
+  which the unchanged safety guard rejects — fixed in `rag-v3`). Acceptance after the
+  fixes was observed on only a handful of answers; measure it with item 6 (`docs/RAG.md`).
 
 ## Remaining work — priority order (owners to be agreed by the team)
 | # | Task | Needs | Effort |
 |---|---|---|---|
-| 1 | **Write + cross-review ≥ 30 validation and ≥ 30 test queries** (`docs/QUERY_WRITING_GUIDE.md`) | all 3 members; a different member reviews each query | queries land in a split via their anchor (~20 % each val/test) → free writing needs ~150 queries for 30/30; see decision below |
+| 1 | **Write + cross-review ≥ 30 validation and ≥ 30 test queries** (`docs/QUERY_WRITING_GUIDE.md`). Status 2026-11-19: 29 **AI-assisted draft** queries exist (`vd.jsonl`, local, not committed, not evaluated — provenance in `CONTRIBUTIONS.md`); 0 human-written reviewed queries yet | all 3 members; a different member reviews each query | queries land in a split via their anchor (~20 % each val/test) → free writing needs ~150 queries for 30/30; see decision below |
 | 2 | `evaluation.evaluate --split validation` with the B and C checkpoints; move checkpoint selection to human validation queries | item 1 | ~15 min CPU |
 | 3 | Re-pool: reviewers judge Model B/C top-10 for every query (pooling bias) | item 1 | 1–2 h people |
 | 4 | ~~Seeds 4110–4112 for B and C, v2~~ — **done** (`experiments/reports/seeds.md`) | — | — |
 | 5 | Fetch official notice pages (UPC / lot / best-before) as verifier evidence — proposal pre-processing step not done yet | network, polite rate limit | ~2 h |
-| 6 | RAG: foundation done (`POST /explain`, template + grounding guard). Remaining: an LLM adapter (optional, env-configured) whose output must pass `check_grounded`; evaluate explanations by hand on ~20 queries | items 2, 5 | 0.5–1 day |
+| 6 | ~~RAG LLM adapter~~ — **done** (GPT-4o-mini, grounding guards, deterministic fallback, usage tracking; `docs/RAG.md`). Remaining: rate the summaries by hand on ~20 validation queries | items 2, 5 | 2–3 h |
 | 7 | ~~Demo website~~ — **built** (Phase 5: `/`, `/search`, `/recalls/[id]`, `/model-lab`, `/how-it-works`; see `docs/PROGRESS.md`) | — | — |
 | 8 | Final test evaluation **once**, after model selection and judgments are complete | items 1–4 | 10 min |
 | 9 | CONTRIBUTIONS.md + commits from every member's own account | everyone | ongoing |

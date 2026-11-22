@@ -50,6 +50,10 @@ python -m evaluation.annotations validate
 ```
 
 ## Working alone (single-annotator)
+> **`vd.jsonl` is AI-assisted** (29 drafts; provenance in [`CONTRIBUTIONS.md`](../../CONTRIBUTIONS.md)).
+> It is gitignored for that reason. Do not finalize it as `single_annotator` — that status
+> means one *person's* judgments — unless the team decides to and reports it as AI-assisted.
+
 If no second person is available, re-check your own drafts and finalize them:
 
 ```bash

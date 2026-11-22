@@ -18,6 +18,13 @@ ENCODER_META = "recalliq_encoder.json"
 
 
 class MeanPoolEncoder(nn.Module):
+    """Text -> one unit-length vector per text (the shared bi-encoder for queries and notices).
+
+    Queries and recall notices go through the SAME network ("bi-encoder"), so notices can be
+    encoded once offline and a query is ranked by a single matrix product at search time.
+    `encode` is the protocol retrieval uses; `forward` keeps gradients for training.
+    """
+
     def __init__(self, model: nn.Module, tokenizer, max_seq_length: int = 128) -> None:
         super().__init__()
         self.model = model
@@ -35,10 +42,13 @@ class MeanPoolEncoder(nn.Module):
 
     @classmethod
     def load(cls, directory: Path) -> "MeanPoolEncoder":
+        """Reload a checkpoint written by `save` (weights, tokenizer, pooling settings)."""
         meta = json.loads((directory / ENCODER_META).read_text("utf-8"))
         return cls.from_pretrained(directory, max_seq_length=meta["max_seq_length"])
 
     def save(self, directory: Path, extra: dict | None = None) -> None:
+        """Write a self-describing checkpoint. The pooling/normalisation settings are stored
+        next to the weights so an index is never built with a mismatched encoder."""
         directory.mkdir(parents=True, exist_ok=True)
         self.model.save_pretrained(directory)
         self.tokenizer.save_pretrained(directory)
@@ -51,6 +61,13 @@ class MeanPoolEncoder(nn.Module):
         return next(self.model.parameters()).device
 
     def forward(self, texts: list[str]) -> torch.Tensor:
+        """(B,) texts -> (B, H) unit vectors, differentiable (used by the trainer).
+
+        Mean pooling must ignore padding: texts in a batch are padded to the longest one, and
+        averaging the padding positions would make a text's vector depend on its batch-mates.
+        The attention mask zeroes those positions and the sum is divided by the number of
+        real tokens. L2 normalisation makes the dot product equal to cosine similarity, which
+        is what both the loss and the search index use."""
         batch = self.tokenizer(texts, padding=True, truncation=True,
                                max_length=self.max_seq_length, return_tensors="pt")
         batch = {k: v.to(self.device) for k, v in batch.items()}

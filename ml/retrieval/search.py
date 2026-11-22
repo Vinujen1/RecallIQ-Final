@@ -135,6 +135,8 @@ class SearchEngine:
             raise ValueError(f"top_k must be between 1 and {MAX_TOP_K}")
 
         scores = self.bm25.scores(query) if model == "bm25" else self._cosine_scores(query, model)
+        # Filters are applied BEFORE ranking (excluded rows get -inf), so top_k is filled with
+        # allowed notices instead of filtering a top-k list down to fewer results.
         allowed = None
         if restrict_to is not None:
             wanted = set(restrict_to)
@@ -145,6 +147,9 @@ class SearchEngine:
         if allowed is not None:
             candidates = [i for i in candidates if allowed[i]]
         if model == "bm25":
+            # BM25 = 0 means no query word occurs in the notice: returning it would present an
+            # unrelated notice as a "result". Dense models have no such floor (every notice
+            # has some cosine similarity), which the UI states explicitly.
             candidates = [i for i in candidates if scores[i] > 0.0]
 
         return [

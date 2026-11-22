@@ -2,13 +2,15 @@
 retrieval over the recall corpus, with deterministic identifier checks per result.
 GET /search/models — which models are servable right now.
 POST /explain — search + identifier checks + evidence selection + grounded explanation
-(deterministic template by default; see ml/rag/pipeline.py)."""
+(deterministic template by default; GPT answer checked by guards when
+RECALLIQ_LLM_PROVIDER=openai; see ml/rag/pipeline.py and docs/RAG.md)."""
 
 import sqlite3
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.config import Settings, get_settings
 from app.db import get_connection
 from app.schemas import (
     ExplainRequest,
@@ -73,7 +75,9 @@ def explain(
     request: ExplainRequest,
     engine: Annotated[SearchEngine, Depends(get_search_engine)],
     connection: Annotated[sqlite3.Connection, Depends(get_connection)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> ExplainResponse:
+    request = request.model_copy(update={"top_k": request.top_k or settings.rag_top_k})
     found = _search(request, engine, connection)
     checks = {c.recall_id: c for c in found.identifier_checks}
     ids = [hit.recall_id for hit in found.results]
@@ -81,7 +85,8 @@ def explain(
     if ids:
         marks = ",".join("?" * len(ids))
         rows = {r["id"]: r for r in connection.execute(
-            f"SELECT id, product, recall_class, last_updated FROM recalls WHERE id IN ({marks})", ids)}
+            f"SELECT id, product, recall_class, last_updated, what_you_should_do "
+            f"FROM recalls WHERE id IN ({marks})", ids)}
     hits = []
     for hit in found.results:
         row = rows.get(hit.recall_id)
@@ -90,8 +95,13 @@ def explain(
                      "product": row["product"] if row else None,
                      "recall_class": row["recall_class"] if row else None,
                      "last_updated": row["last_updated"] if row else None,
+                     "what_you_should_do": row["what_you_should_do"] if row else None,
                      "identifier_verdict": checks[hit.recall_id].verdict})
-    answer = grounded_explain(request.query, request.model, hits).to_json()
+    # Sync endpoint: FastAPI runs it in a worker thread, so the blocking OpenAI call (bounded
+    # by RECALLIQ_LLM_TIMEOUT_SECONDS) does not block the event loop.
+    answer = grounded_explain(request.query, request.model, hits,
+                              llm_config=settings.llm_config,
+                              max_evidence=settings.rag_max_evidence).to_json()
     for fact in answer["retrieved_facts"]:
         fact.pop("identifier_detail", None)
     return ExplainResponse.model_validate(answer)

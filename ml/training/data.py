@@ -37,6 +37,8 @@ class LeakageError(RuntimeError):
 
 @dataclass(frozen=True)
 class TrainingPair:
+    """One contrastive example: a query, the recall it should retrieve, and optional hard
+    negatives (look-alike recalls it must rank lower; empty for Model B)."""
     query: str
     positive_id: int
     negative_ids: tuple[int, ...]
@@ -59,6 +61,11 @@ _BRAND = re.compile(r"^.*\bbrands?\b\s+(?:and\s+)?", re.I)
 
 
 def title_core(title: str) -> str:
+    """The product phrase of an official title, without prefixes ("Archived -", "Recall:",
+    "<Company> recalls ...") and without the reason tail ("recalled due to ...").
+
+    Training queries are built from this core so a query names a product the way a consumer
+    would, instead of copying the full notice title (which would make retrieval trivial)."""
     text = _ARCHIVED.sub("", title)
     text = _PREFIX.sub("", text)
     text = _WARNS.sub("", text) if re.search(r"\bwarns?\b", text, re.I) else text
@@ -175,6 +182,8 @@ def pseudo_queries(record: CorpusRecord, product: str | None, views: tuple[str, 
 # --- split guards ------------------------------------------------------------------------
 
 def require_frozen(manifest: dict) -> None:
+    """Refuse to train until the split is frozen by human review: training on a split that
+    can still change would make every reported validation/test number unreproducible."""
     if not manifest.get("frozen"):
         raise RuntimeError(
             "The split manifest is not frozen. Finish the split review "
@@ -192,6 +201,10 @@ def group_lookup(manifest: dict, records: list[CorpusRecord]) -> dict[int, str]:
 
 
 def assert_no_leakage(pairs: list[TrainingPair], split_of: dict[int, str], split: str) -> None:
+    """Fail loudly if any positive OR negative comes from another split.
+
+    Negatives matter too: training a model to push a validation recall away is still
+    training on that recall's text, which would inflate validation results."""
     for pair in pairs:
         for rid in (pair.positive_id, *pair.negative_ids):
             if split_of.get(rid) != split:
@@ -267,6 +280,15 @@ def build_pairs(
         sem = matrix @ matrix.T
 
     def negatives(query: str, positive: int, judged: set[int]) -> tuple[int, ...]:
+        """Up to `wanted` hard negatives for one (query, positive), best first.
+
+        A useful hard negative looks like the positive but is a different recall. Sources,
+        in priority order: (1) recalls a person judged DISTINCT from the positive; (2) BM25
+        hits for the query (lexical look-alikes) interleaved with the positive's nearest
+        MiniLM neighbours (semantic look-alikes). A false negative (actually the same
+        product) would teach the model the wrong thing, so `allowed` rejects judged-relevant
+        recalls and anything in the positive's split group, and (except for human-verified
+        DISTINCT recalls) near-identical product keys."""
         if wanted == 0:
             return ()
 
@@ -313,6 +335,7 @@ def build_pairs(
 
 
 def _interleave(a: list[int], b: list[int]) -> list[int]:
+    """a0, b0, a1, b1, ...: gives lexical and semantic candidates equal priority."""
     out = []
     for i in range(max(len(a), len(b))):
         out += ([a[i]] if i < len(a) else []) + ([b[i]] if i < len(b) else [])
@@ -320,6 +343,7 @@ def _interleave(a: list[int], b: list[int]) -> list[int]:
 
 
 def normalize_query(text: str) -> str:
+    """Case/punctuation-insensitive form used to detect identical query texts."""
     return " ".join(tokenize(text))
 
 
@@ -342,6 +366,8 @@ def reviewed_distinct_pairs(review_rows: list[dict]) -> dict[int, set[int]]:
 
 
 def pairs_fingerprint(pairs: list[TrainingPair]) -> str:
+    """SHA-256 over the exact examples (order included). Stored in run_info.json, so two
+    runs can be shown to have used byte-identical validation data (Models B and C do)."""
     digest = hashlib.sha256()
     for p in pairs:
         digest.update(json.dumps([p.query, p.positive_id, list(p.negative_ids), p.source],

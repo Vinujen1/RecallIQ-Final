@@ -76,6 +76,8 @@ python -m evaluation.annotations validate data/annotations/queries.jsonl
 **Working alone?** Instead of step 2, re-check your own drafts later (fresh eyes, ideally
 another day) and finalize them as single-annotator judgments. They are *not* reviewed and
 are evaluated only on request (`--include-single-annotator`); see `EVALUATION.md` § 3a.
+(The current 29 drafts in `vd.jsonl` are ChatGPT-assisted, see `CONTRIBUTIONS.md`: do not
+finalize them as `single_annotator` without reporting them as AI-assisted.)
 ```bash
 python -m evaluation.annotations finalize data/annotations/vd.jsonl --annotator VD
 ```

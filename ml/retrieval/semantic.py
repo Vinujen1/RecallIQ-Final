@@ -88,6 +88,11 @@ class MiniLMEncoder:
 
 @dataclass(frozen=True)
 class EmbeddingIndex:
+    """Precomputed notice embeddings (row i = recall_ids[i]) plus provenance metadata.
+
+    The metadata records which encoder produced the rows and a fingerprint of the corpus
+    text, so an index built from different text or a different model is refused at load
+    time instead of silently returning wrong neighbours."""
     recall_ids: list[int]
     matrix: np.ndarray  # float32 [N, dim], unit rows
     metadata: dict
@@ -118,6 +123,8 @@ class EmbeddingIndex:
 def save_embeddings(
     directory: Path, recall_ids: list[int], matrix: np.ndarray, metadata: dict
 ) -> None:
+    """Write the index atomically; metadata is written last, so a crash mid-write leaves an
+    index that fails to load rather than a partial one that loads."""
     matrix = np.asarray(matrix, dtype=np.float32)
     if matrix.ndim != 2 or matrix.shape[0] != len(recall_ids):
         raise ValueError(f"Matrix shape {matrix.shape} does not match {len(recall_ids)} ids")
@@ -135,6 +142,8 @@ def save_embeddings(
 
 
 def load_embeddings(directory: Path) -> EmbeddingIndex:
+    """Load and validate an index (shapes, counts, finite unit rows). Every failure raises
+    StaleIndexError/FileNotFoundError, which the API turns into a per-model 503."""
     paths = [directory / name for name in (EMBEDDINGS_FILE, IDS_FILE, METADATA_FILE)]
     missing = [p.name for p in paths if not p.is_file()]
     if missing:

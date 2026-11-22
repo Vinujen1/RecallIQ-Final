@@ -5,6 +5,26 @@ import lab from "../../src/data/model-lab.json";
 // Assertions use records known to exist in the frozen index (see src/data/examples.ts).
 
 const rows = (page: Page) => page.locator("ol[aria-label='Closest notices'] > li");
+// The visible results label ("6 closest notices, ranked by ...") and the screen-reader live
+// region that announces the same result ("6 closest notices for <query>, ranked by ...") both
+// contain the ranking method, so each is located explicitly instead of by a shared substring.
+const resultsLabel = (page: Page) => page.getByText(/^\d+ closest notices?, ranked by /);
+const announcement = (page: Page) => page.locator("p[aria-live='polite']");
+
+async function applyFilter(page: Page, bodyContains: string, change: () => Promise<unknown>) {
+  const response = page.waitForResponse(
+    (r) => r.url().endsWith("/search") && (r.request().postData() ?? "").includes(bodyContains),
+  );
+  await change();
+  await response;
+  await expect(page.locator("ol[aria-label='Closest notices']").locator("xpath=..")).toHaveAttribute("aria-busy", "false");
+}
+
+async function expectKeywordRanking(page: Page) {
+  await expect(resultsLabel(page)).toBeVisible();
+  await expect(resultsLabel(page)).toHaveText(/ranked by shared keywords$/);
+  await expect(announcement(page)).toContainText("ranked by shared keywords");
+}
 
 test.describe("home and search", () => {
   test("hero search lands on real results with the coverage note and official link", async ({ page }) => {
@@ -15,7 +35,7 @@ test.describe("home and search", () => {
 
     await expect(page).toHaveURL(/\/search\?q=Bell\+youth\+bike\+helmet$/);
     await expect(rows(page).first()).toContainText("Bell Cadence Youth Helmets");
-    await expect(page.getByText("ranked by shared keywords")).toBeVisible();
+    await expectKeywordRanking(page);
     await expect(page.getByText("Searches a 1,000-notice sample of Government of Canada recalls, not all recalls.")).toBeVisible();
     await expect(page.getByRole("link", { name: /Search all official recalls/ }).first()).toHaveAttribute(
       "href",
@@ -47,7 +67,7 @@ test.describe("home and search", () => {
     await expect(page.getByText("Semantic models always return their nearest notices")).toBeVisible();
     await page.goBack();
     await expect(page).not.toHaveURL(/model=/);
-    await expect(page.getByText("ranked by shared keywords")).toBeVisible();
+    await expectKeywordRanking(page);
   });
 
   test("a model number in the query is compared with the notice, both sides shown", async ({ page }) => {
@@ -61,11 +81,18 @@ test.describe("home and search", () => {
   });
 
   test("filters are applied by the API and kept in the URL", async ({ page }) => {
-    await page.goto("/search?q=salmonella");
-    await page.locator("#refine-domain").selectOption("consumer_product");
-    await expect(page).toHaveURL(/domain=consumer_product/);
+    // A query with matches both inside and outside the category, so the category filter must
+    // visibly narrow the results (a query with no in-category matches correctly returns none).
+    await page.goto("/search?q=choking+hazard");
     await expect(rows(page)).not.toHaveCount(0);
-    await page.locator("#refine-cat").selectOption({ label: "Toys and games (77)" });
+    // Each step waits for the API response that carries the new filter and for the list to
+    // stop loading, so rows are never read from the previous (dimmed) result set.
+    await applyFilter(page, "consumer_product", () => page.locator("#refine-domain").selectOption("consumer_product"));
+    await expect(page).toHaveURL(/domain=consumer_product/);
+    const beforeCategory = await rows(page).locator("a").allInnerTexts();
+    expect(beforeCategory.length).toBeGreaterThan(0);
+    expect(beforeCategory.some((text) => !text.includes("Toys and games"))).toBe(true);
+    await applyFilter(page, "Toys and games", () => page.locator("#refine-cat").selectOption({ label: "Toys and games (77)" }));
     await expect(page).toHaveURL(/cat=Toys\+and\+games/);
     await expect(rows(page)).not.toHaveCount(0);
     // Every row shown must belong to the chosen category.

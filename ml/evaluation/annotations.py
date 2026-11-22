@@ -53,12 +53,19 @@ _WORD = re.compile(r"\w+", re.UNICODE)
 
 @dataclass
 class Judgment:
+    """One relevant recall for a query; grade 1 = relevant, 2 = highly relevant (for nDCG)."""
     recall_id: int
     grade: int = 1
 
 
 @dataclass
 class Annotation:
+    """One human-written query with its relevance judgments and review provenance.
+
+    `reviewer_status` records how far it got: "draft"; "reviewed" (a different person,
+    `reviewer`, checked the author's work); "single_annotator" (author only, `reviewer`
+    empty: evaluated only on request and always reported separately from reviewed queries);
+    or "rejected"."""
     query_id: str
     query: str
     split: str
@@ -83,6 +90,7 @@ class Annotation:
 
 @dataclass
 class ValidationReport:
+    """Result of validating an annotation file: usable records, blocking errors, warnings."""
     valid: list[Annotation] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -106,6 +114,7 @@ class ValidationReport:
 # --- reading ---------------------------------------------------------------------------
 
 def read_jsonl(path: Path) -> list[dict]:
+    """Raw records, one per non-empty line; reports the line number of malformed JSON."""
     raws = []
     for number, line in enumerate(path.read_text("utf-8-sig").splitlines(), start=1):
         if not line.strip():
@@ -152,6 +161,7 @@ def read_csv(path: Path) -> list[dict]:
 
 
 def read_any(path: Path) -> list[dict]:
+    """Read annotations from .jsonl or .csv (the spreadsheet template) into raw records."""
     if not path.is_file():
         raise FileNotFoundError(f"Annotation file not found: {path}")
     if path.suffix.lower() == ".jsonl":

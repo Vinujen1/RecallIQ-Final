@@ -180,14 +180,33 @@ def test_distinct_adds_no_constraint_and_can_drop_a_manual_link():
 def test_cli_status_and_apply_exit_codes(review_env, capsys):
     common = ["--review", str(review_env["review"]), "--db", str(review_env["db"]),
               "--manifest", str(review_env["manifest_path"]),
-              "--embeddings", str(review_env["tmp"] / "none")]
+              "--embeddings", str(review_env["tmp"] / "none"),
+              "--proposals", str(review_env["proposals"])]
+    # Isolated from data/annotations/: real annotation files must never change the outcome.
+    isolated = ["--annotations-dir", str(review_env["annotations"])]
     assert main(["status", *common]) == 0
     assert "undecided: 1" in capsys.readouterr().out
-    assert main(["apply", *common]) == 2  # incomplete review -> nothing changed
+    assert main(["apply", *common, *isolated]) == 2  # incomplete review -> nothing changed
     _decide(review_env, "DISTINCT")
-    assert main(["apply", *common]) == 4  # no semantic audit -> not frozen
-    assert main(["apply", *common, "--skip-semantic-audit"]) == 0
+    assert main(["apply", *common, *isolated]) == 4  # no semantic audit -> not frozen
+    assert main(["apply", *common, *isolated, "--skip-semantic-audit"]) == 0
     assert load_manifest(review_env["manifest_path"])["frozen"] is True
+
+
+def test_cli_apply_refuses_when_the_given_annotations_dir_has_records(review_env, capsys):
+    """The --annotations-dir guard still protects existing labels (isolation, not bypass)."""
+    annotations = review_env["annotations"]
+    annotations.mkdir(parents=True, exist_ok=True)
+    (annotations / "someone.jsonl").write_text('{"query_id": "q1"}\n', "utf-8")
+    _decide(review_env, "DISTINCT")
+    args = ["apply", "--review", str(review_env["review"]), "--db", str(review_env["db"]),
+            "--manifest", str(review_env["manifest_path"]),
+            "--embeddings", str(review_env["tmp"] / "none"),
+            "--proposals", str(review_env["proposals"]),
+            "--annotations-dir", str(annotations), "--skip-semantic-audit"]
+    assert main(args) == 2
+    assert "annotation records exist" in capsys.readouterr().out
+    assert load_manifest(review_env["manifest_path"]).get("frozen") is not True
 
 
 # --- safeguards added after code review ------------------------------------------------

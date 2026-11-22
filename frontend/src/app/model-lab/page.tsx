@@ -12,8 +12,12 @@ export const metadata: Metadata = {
   description: "How RecallIQ's four retrieval approaches were built and how they compare on proxy evaluation.",
 };
 
+// Every number on this page comes from src/data/model-lab.json, which
+// scripts/export-model-lab.mjs generates from the committed experiment files. Nothing here
+// is typed by hand, so the page cannot drift from experiments/reports.
 const NAME: Record<string, string> = { bm25: "BM25", minilm: "Model A", model_b: "Model B", model_c: "Model C" };
 
+// Used to highlight the best value per column (lower is better for the false-match rate).
 const best = (key: "recall5" | "mrr10" | "ndcg10") => Math.max(...lab.systems.map((s) => s[key]));
 const bestFmr = Math.min(...lab.systems.map((s) => s.fmr1.value));
 

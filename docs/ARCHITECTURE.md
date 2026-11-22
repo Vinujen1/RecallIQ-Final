@@ -10,7 +10,8 @@ ML code:
 flowchart LR
     U[User browser] --> FE["frontend/<br/>Next.js :3000"]
     FE -- "HTTP/JSON" --> BE["backend/<br/>FastAPI :8000"]
-    BE -. "loads trained models (later)" .-> ART[(ml artifacts)]
+    BE -. "loads checkpoints + indexes" .-> ART[(ml artifacts)]
+    BE -. "optional, /explain only" .-> LLM["OpenAI API<br/>(GPT-4o-mini)"]
     ML["ml/<br/>training + evaluation"] -. reads .-> D[(data/raw, data/processed)]
     ML -. writes .-> ART
 ```
@@ -56,9 +57,9 @@ files are git-ignored.
 | GET | `/recalls?limit=20&offset=0` | `{"items":[RecallSummary], "total", "limit", "offset"}` newest first | 422 bad paging, 503 no DB |
 | GET | `/recalls/{id}` | `RecallDetail` (all fields incl. family + review flags) | 404, 422, 503 |
 | GET | `/categories` | `{"items":[{"category","domain","count"}], "total"}` | 503 |
-| POST | `/search` | `{"query","model","score_type","score_description","top_k","results":[{"rank","recall_id","title","category","issue","url","score"}], "identifiers_in_query", "identifier_checks":[{"recall_id","verdict","by_type"}], "notice"}` — `model` ∈ `bm25`, `minilm` (A), `minilm_finetuned` (B), `minilm_hard_negative` (C) | 422 invalid body / unknown model, 503 no DB / selected model's checkpoint or index unavailable or incompatible |
+| POST | `/search` | `{"query","model","score_type","score_description","top_k","domain","category","results":[{"rank","recall_id","title","category","issue","url","score","domain","last_updated","archived"}], "identifiers_in_query", "identifier_checks":[{"recall_id","verdict","by_type"}], "notice"}` — `model` ∈ `bm25`, `minilm` (A), `minilm_finetuned` (B), `minilm_hard_negative` (C) | 422 invalid body / unknown model, 503 no DB / selected model's checkpoint or index unavailable or incompatible |
 | GET | `/search/models` | `{"models":[{"model","available","score_type","description","reason"}]}` | 503 no DB |
-| POST | `/explain` | `{"query","model","evidence_status","retrieved_facts":[…stored fields…],"explanation":{"generator","text","cited_recall_ids","fallback_reason"},"sources":[official URLs],"disclaimer"}` (`top_k` ≤ 5) | as `/search` |
+| POST | `/explain` | `{"query","model","evidence_status","retrieved_facts":[…stored fields incl. "what_you_should_do", "identifier_verdict"…],"skipped_identifier_mismatches","explanation":{"generator","text","cited_recall_ids","fallback_reason","evidence_sufficient","generation":{"provider","model","outcome","prompt_version","latency_ms","prompt_tokens","completion_tokens","total_tokens"}},"sources":[official URLs],"disclaimer"}` (`top_k` ≤ 5, default `RECALLIQ_RAG_TOP_K`). OpenAI failures never change the status code: the template is returned with `fallback_reason` | as `/search` |
 
 Phase 4 additions are **additive**: the original `/search` request and every original
 response field are unchanged (existing tests pass unmodified).
@@ -76,8 +77,12 @@ Scores: BM25 and cosine similarity are labelled by `score_type` and never compar
 UPC / model / lot / best-before codes in the query vs the indexed recall record; MATCH or
 MISMATCH only when both sides list that identifier type, else UNKNOWN. **Explanations**
 (`ml/rag/pipeline.py`): evidence = stored fields of the top results only; deterministic
-template generator by default (no network, no key); `RECALLIQ_LLM_PROVIDER` reserved for a
-future LLM adapter whose output must pass `check_grounded`, otherwise the template is used.
+template generator by default (no network, no key). With `RECALLIQ_LLM_PROVIDER=openai`
+(`ml/rag/llm.py`, default model `gpt-4o-mini`) an AI answer is written from the same evidence
+and shown only if it passes `ml/rag/guards.py` (grounded codes and ids, verbatim quotes, no
+foreign URLs, no safety or unverified identifier claims). Errors, timeouts and rejected
+answers fall back to the template with a `fallback_reason`. Latency and token usage are
+returned in `explanation.generation`. See [`RAG.md`](RAG.md).
 
 **Shared retrieval code.** `ml/retrieval` is installed in editable mode (`pip install -e
 ml`) and imported by both the offline embedding script and the API, so documents and

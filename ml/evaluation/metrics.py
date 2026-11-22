@@ -17,6 +17,8 @@ from statistics import mean
 
 
 def _check(ranked: Sequence[int], relevant: Mapping[int, int], k: int) -> None:
+    """Reject inputs that would silently produce a wrong number (duplicates in a ranking
+    double-count hits; a query without relevant documents has an undefined metric)."""
     if k < 1:
         raise ValueError("k must be >= 1")
     if not relevant:
@@ -28,12 +30,15 @@ def _check(ranked: Sequence[int], relevant: Mapping[int, int], k: int) -> None:
 
 
 def recall_at_k(ranked: Sequence[int], relevant: Mapping[int, int], k: int = 5) -> float:
+    """Share of all relevant notices that appear in the top k (did we surface them at all?)."""
     _check(ranked, relevant, k)
     found = sum(1 for doc in ranked[:k] if doc in relevant)
     return found / len(relevant)
 
 
 def mrr_at_k(ranked: Sequence[int], relevant: Mapping[int, int], k: int = 10) -> float:
+    """Reciprocal rank of the first relevant notice: 1 at rank 1, 0.5 at rank 2, ... 0 if
+    none in the top k. Matches the consumer task: how far down is the first right notice?"""
     _check(ranked, relevant, k)
     for position, doc in enumerate(ranked[:k], start=1):
         if doc in relevant:
@@ -42,10 +47,14 @@ def mrr_at_k(ranked: Sequence[int], relevant: Mapping[int, int], k: int = 10) ->
 
 
 def _dcg(grades: Sequence[int]) -> float:
+    # Gain 2^g - 1 rewards highly relevant notices more than partially relevant ones;
+    # the log2(rank + 1) discount makes the same notice worth less the lower it appears.
     return sum((2**g - 1) / math.log2(i + 1) for i, g in enumerate(grades, start=1))
 
 
 def ndcg_at_k(ranked: Sequence[int], relevant: Mapping[int, int], k: int = 10) -> float:
+    """DCG of the ranking divided by the best achievable DCG, so 1.0 = ideal order. Unlike
+    MRR it uses graded relevance and every relevant notice in the top k."""
     _check(ranked, relevant, k)
     gains = [relevant.get(doc, 0) for doc in ranked[:k]]
     ideal = sorted(relevant.values(), reverse=True)[:k]

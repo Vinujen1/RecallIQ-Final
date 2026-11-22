@@ -45,6 +45,7 @@ NOT_A_SAFETY_GUARANTEE = (
 
 
 class Verdict(str, Enum):
+    """Outcome of an exact identifier comparison (the API exposes MATCH/MISMATCH/UNKNOWN)."""
     MATCH = "confirmed_match"
     MISMATCH = "confirmed_mismatch"
     UNKNOWN = "missing_or_unknown"
@@ -52,6 +53,7 @@ class Verdict(str, Enum):
 
 @dataclass
 class Identifiers:
+    """Normalised identifiers found in one text, by type (sets: a notice may list many)."""
     upc: set[str] = field(default_factory=set)
     model: set[str] = field(default_factory=set)
     lot: set[str] = field(default_factory=set)
@@ -64,6 +66,7 @@ class Identifiers:
 
 @dataclass
 class TypeResult:
+    """Comparison for one identifier type, with both sides' values for display."""
     verdict: Verdict
     query_values: list[str]
     evidence_values: list[str]
@@ -72,6 +75,7 @@ class TypeResult:
 
 @dataclass
 class VerificationResult:
+    """Overall verdict plus the per-type breakdown shown in the UI."""
     verdict: Verdict
     by_type: dict[str, TypeResult]
     note: str = NOT_A_SAFETY_GUARANTEE
@@ -97,6 +101,10 @@ def _check_digit_ok(digits: str) -> bool:
 
 
 def normalize_upc(text: str) -> str | None:
+    """13-digit form of a UPC-A/EAN-13, or None if it is not a valid barcode.
+
+    The GS1 check digit rejects most random 12/13-digit numbers (phone numbers, lot codes),
+    and zero-padding makes the same product's UPC-A and EAN-13 spellings compare equal."""
     digits = re.sub(r"[ -]", "", text)
     if len(digits) not in (12, 13) or not digits.isdigit() or not _check_digit_ok(digits):
         return None
@@ -104,6 +112,7 @@ def normalize_upc(text: str) -> str | None:
 
 
 def extract_upcs(text: str) -> set[str]:
+    """Every valid barcode in `text` (spaces/hyphens inside the number are allowed)."""
     return {upc for m in _UPC_CANDIDATE.finditer(text) if (upc := normalize_upc(m.group(1)))}
 
 
@@ -121,6 +130,7 @@ _NOT_CODES = {"O157", "O157H7", "H7", "COVID19", "MP3", "MP4", "USB3", "4K", "3D
 
 
 def normalize_code(text: str) -> str:
+    """Upper-case, separators removed: "xj-500" and "XJ 500" compare equal, "XJ-600" does not."""
     return re.sub(r"[^A-Z0-9]", "", text.upper())
 
 

@@ -49,6 +49,7 @@ DEFAULT_POLICY = "colocate"
 REVIEW_DIR = REPO_ROOT / "data" / "reviews"
 DEFAULT_REVIEW = REVIEW_DIR / "split_pair_review.csv"
 DEFAULT_PROPOSALS = REVIEW_DIR / "assistant_proposals.json"
+DEFAULT_ANNOTATIONS = REPO_ROOT / "data" / "annotations"
 MIN_RATIONALE = 10
 # Reviewer names that indicate an automated "review". This is an ATTRIBUTION check, not
 # authentication: it stops accidental AI attribution, it cannot prove who typed a row.
@@ -395,7 +396,7 @@ def apply(
     review_path: Path, db_path: Path, manifest_path: Path, embeddings_dir: Path | None,
     policy: str = DEFAULT_POLICY, refreeze: bool = False,
     require_semantic_audit: bool = True,
-    annotations_dir: Path = REPO_ROOT / "data" / "annotations",
+    annotations_dir: Path = DEFAULT_ANNOTATIONS,
     allow_annotation_invalidation: bool = False,
     proposals_path: Path | None = DEFAULT_PROPOSALS,
 ) -> tuple[dict, list[str]]:
@@ -521,7 +522,8 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--db", type=Path, default=DEFAULT_DB)
         p.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
         p.add_argument("--embeddings", type=Path, default=DEFAULT_EMBEDDINGS)
-    commands["export"].add_argument("--proposals", type=Path, default=DEFAULT_PROPOSALS)
+        p.add_argument("--proposals", type=Path, default=DEFAULT_PROPOSALS,
+                       help="AI-assisted pair proposals (used to flag unverified rows)")
     commands["export"].add_argument(
         "--all-candidates", action="store_true",
         help="list every lexical/semantic candidate pair not already grouped, whatever its "
@@ -532,6 +534,9 @@ def main(argv: list[str] | None = None) -> int:
     commands["apply"].add_argument("--skip-semantic-audit", action="store_true",
                                    help="freeze even if the MiniLM leakage audit cannot run (weaker)")
     commands["apply"].add_argument("--allow-annotation-invalidation", action="store_true")
+    # Where existing relevance annotations live: apply refuses to change the split while any
+    # exist (they would silently become invalid). Configurable so tests never read real data.
+    commands["apply"].add_argument("--annotations-dir", type=Path, default=DEFAULT_ANNOTATIONS)
     args = parser.parse_args(argv)
 
     try:
@@ -548,7 +553,7 @@ def main(argv: list[str] | None = None) -> int:
             fingerprint = corpus_fingerprint(corpus)
             decided, errors, undecided = validate_review(
                 rows, {r.recall_id for r in corpus}, fingerprint, require_complete=False,
-                proposals=_load_proposals(DEFAULT_PROPOSALS))
+                proposals=_load_proposals(args.proposals))
             _print_status(rows, decided, errors, undecided)
             print(f"\nManifest frozen: {manifest.get('frozen', False)}")
             print(f"corpus_fingerprint to enter in each reviewed row: {fingerprint}")
@@ -556,7 +561,9 @@ def main(argv: list[str] | None = None) -> int:
         result, messages = apply(
             args.review, args.db, args.manifest, args.embeddings, args.related_event_policy,
             args.refreeze, require_semantic_audit=not args.skip_semantic_audit,
-            allow_annotation_invalidation=args.allow_annotation_invalidation)
+            annotations_dir=args.annotations_dir,
+            allow_annotation_invalidation=args.allow_annotation_invalidation,
+            proposals_path=args.proposals)
         summary = {k: result[k] for k in ("counts", "frozen", "assignment_fingerprint", "checks")}
         print(json.dumps(summary, indent=2))
         for message in messages:

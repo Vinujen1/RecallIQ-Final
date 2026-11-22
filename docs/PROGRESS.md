@@ -12,6 +12,9 @@ the next begins.
 | 2C    | Split review + evaluation preparation | ✅ Complete — 81/81 human decisions, split **frozen** | 2026-11-16 |
 | 3     | Models B and C: training + proxy evaluation | ✅ Trained; ⏳ human-query evaluation pending (0 reviewed queries) | 2026-11-16 |
 | 4     | Trained models in FastAPI + identifier checks + grounded explanations | ✅ Complete (template explanations; no LLM adapter) | 2026-11-16 |
+| 5     | Website (Next.js 16) and search filters | ✅ Complete | 2026-11-16 |
+| 6     | GPT-powered RAG with grounding safeguards and deterministic fallback | ✅ Complete (commit `9e03348`) | 2026-11-18 |
+| 7     | Repository cleanup, documentation and test-isolation fixes | 🔄 In review (uncommitted) | 2026-11-18 |
 
 ---
 
@@ -378,6 +381,54 @@ Table: `experiments/reports/seeds.md`.
 See the Phase 5 report in the session hand-off; summary: backend + retrieval tests pass,
 `npm run lint`, `npx tsc --noEmit`, `npm run build` pass; browser checks at 375 px and
 1440 px against the live API.
+
+## Phase 6 — GPT-powered RAG
+
+### Delivered
+- `ml/rag/llm.py`: OpenAI adapter (default `gpt-4o-mini`, configurable). Query + at most 3
+  evidence notices sent as JSON data (no URLs); strict JSON-schema output with cited ids;
+  timeouts, retries and every SDK error mapped to a typed, secret-free code.
+- `ml/rag/guards.py`: deterministic acceptance checks (whole-token codes/ids, capitalised
+  names and quoted text must be in the evidence; no foreign URLs or domains; no unhedged
+  safety claims; no code-match claim without a verifier MATCH; no injection echoes).
+  Hardened after an independent security review that found bypasses in the first version.
+- `ml/rag/pipeline.py`: LLM only when evidence exists; any failure or rejection → the
+  deterministic template with a `fallback_reason`; latency + token usage returned and logged.
+- Backend: typed settings (key as `SecretStr`, from `backend/.env` only), `top_k` / evidence
+  count / timeout / token limits configurable, `python -m app.llm_check`. Frontend: AI label,
+  fallback note, cited sources with hazard / product / "what to do", usage line.
+
+### Verification
+Mocked OpenAI tests for grounding, citations, missing evidence, every failure path,
+injection and hallucination cases (`tests/rag/test_llm.py`, `tests/backend/test_explain_llm.py`);
+an autouse fixture blocks real OpenAI clients in tests. Live OpenAI check and website
+confirmed by the project owner (2026-11-18). Details: `docs/RAG.md`.
+
+## Phase 7 — Repository cleanup (in review)
+README rewritten for the current system; `tests/README.md` merged into it; `ml/README.md`
+and `frontend/README.md` rewritten; unused create-next-app assets removed; split-review CLI
+made isolatable (`--annotations-dir`, `--proposals`) so tests never read real annotations;
+three pre-existing Playwright failures fixed at their root cause (ambiguous text selector
+matching the screen-reader live region; a filter test whose query had no in-category
+matches). See the Phase 7 hand-off for the full list.
+
+False rejections found by live checks were fixed without relaxing any safety check: word
+dates are resolved to the evidence's ISO date (`ml/rag/guards.py`), a sentence start after
+`". \n\n"` is no longer read as a name, and the prompt no longer asks the model to call
+missing fields "not listed" (`rag-v3`). Backend logging now shows each AI answer's outcome
+and rejection category in the uvicorn console (excerpts only at `RECALLIQ_LOG_LEVEL=DEBUG`).
+New tests: `tests/rag/test_guards.py` and logging tests. ChatGPT-assisted provenance of the
+29 local draft queries disclosed (`CONTRIBUTIONS.md`).
+
+### Verification (2026-11-19)
+| Check | Result |
+|---|---|
+| `python -m pytest` (repo root) | PASS — 411 passed, 0 failed |
+| `npx tsc --noEmit`, `npm run lint`, `npm run build` | PASS |
+| `npx playwright test` (unit + desktop + mobile, backend with `RECALLIQ_LLM_PROVIDER=none`) | PASS — 34 passed |
+| Live `/explain`, prompt `rag-v2` (6 OpenAI calls) | 2/6 accepted; 4 safe fallbacks to the template (see `docs/RAG.md`) |
+| Live `/explain`, prompt `rag-v3` (2 calls, the two "not listed" queries) | 2/2 accepted |
+| Rejection reason visible under uvicorn (no paid call: `error:not_configured`) | PASS; query text absent from the log |
 
 ## Next phase
 _To be defined by the project owner._ See `docs/CHECKPOINT.md` → Remaining work.

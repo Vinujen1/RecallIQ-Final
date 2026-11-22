@@ -1,3 +1,12 @@
+# Offline ML pipeline + the parts of ml/ the API imports (retrieval, rag, verification).
+# Ranges are compatible with the tested set (numpy 2.5, torch 2.15, transformers 5.23,
+# huggingface_hub 2.4, sentence-transformers 6.3, pandas 2.x/3.x) and contain no platform-specific
+# build tags, so a Linux/Docker install resolves its own torch wheel (CPU or CUDA).
 pandas>=2.2,<4.0
-# Phase 2A retrieval (pulls in torch, transformers, huggingface_hub)
+numpy>=2.0,<3.0
+# Imported directly by training/ and retrieval/ (mean-pooling encoder, tokenizer, checkpoints).
+torch>=2.4,<3.0
+transformers>=5.0,<6.0
+huggingface_hub>=1.0,<3.0
+# Pretrained all-MiniLM-L6-v2 (Model A) encoder and revision-pinned downloads.
 sentence-transformers>=6.3,<7.0

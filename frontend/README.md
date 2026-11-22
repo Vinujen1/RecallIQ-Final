@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# frontend/ — RecallIQ web app
 
-## Getting Started
+Next.js 16 (App Router, `cacheComponents`), React 19, TypeScript and Tailwind CSS 4. The UI
+holds no business logic and no secrets. Every result, identifier verdict and summary comes
+from the FastAPI backend. The visual system and trust rules are specified in
+[`DESIGN.md`](DESIGN.md).
 
-First, run the development server:
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local      # NEXT_PUBLIC_API_BASE_URL, default http://localhost:8000
+npm run dev                     # http://localhost:3000 (backend must be running)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`NEXT_PUBLIC_*` values are embedded in the browser bundle. Never put an API key there: the
+OpenAI key belongs in `backend/.env` only.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | Purpose |
+|---|---|
+| `/` | Hero search and an explanation of what RecallIQ can and cannot tell you |
+| `/search` | Results with URL-held state (query, model, domain, category, selected notice), identifier comparison, the on-demand evidence summary (`POST /explain`), and loading / empty / error / 503 states |
+| `/recalls/[id]` | Server-rendered notice page; re-runs the originating search for the identifier comparison |
+| `/model-lab` | Learning curves, proxy metrics with bootstrap CIs, live four-model comparison |
+| `/how-it-works` | Method, limitations, FAQ |
 
-## Learn More
+## Layout
 
-To learn more about Next.js, take a look at the following resources:
+| Path | Contents |
+|---|---|
+| `src/app/` | Routes, layout, global styles (design tokens), error and not-found pages |
+| `src/components/search/` | `SearchApp` (state and orchestration), result rows, detail panel, refine controls, identifier checks, `EvidenceSummary` (RAG answer and citations), `use-api` (cancellable fetch hook) |
+| `src/components/lab/` | Model Lab charts and live comparison |
+| `src/components/{brand,layout,recall,ui}/` | Wordmark, header/footer/theme, notice identifier panel, shared primitives |
+| `src/lib/api/` | Typed API client (`client.ts`: timeouts, error kinds, no server detail leaked) and response types (`types.ts`, mirroring `backend/app/schemas.py`) |
+| `src/lib/` | Model metadata, search-param parsing, formatting, navigation |
+| `src/data/model-lab.json` | **Generated** by `node scripts/export-model-lab.mjs` from `../experiments/`. Never edited by hand |
+| `src/proxy.ts` | Returns a real HTTP 404 for unknown recall IDs before the streamed page starts (Next 16 Proxy) |
+| `tests/unit/`, `tests/e2e/` | Playwright: pure helpers; user journeys, API failure states, mobile layout |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Checks
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npx tsc --noEmit
+npm run lint
+npm run build
+npm run test:unit
+npm run test:e2e        # desktop + mobile; needs the backend on :8000 (or set E2E_BASE_URL)
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`AGENTS.md` is written by `next dev` itself (agent notes about this Next.js version) and is
+kept as generated.

@@ -108,7 +108,22 @@ export interface EvidenceFact {
   category: string | null;
   recall_class: string | null;
   last_updated: string | null;
+  /** Official "what you should do" text, verbatim (null = not listed). */
+  what_you_should_do: string | null;
   identifier_verdict: IdentifierVerdict;
+}
+
+/** Observability for the LLM step (never contains the key or the prompt). */
+export interface GenerationStats {
+  provider: string;
+  model: string | null;
+  /** accepted | rejected | error:<code> | skipped:<evidence_status> */
+  outcome: string;
+  prompt_version: string;
+  latency_ms: number | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
 }
 
 export interface GeneratedExplanation {
@@ -116,6 +131,9 @@ export interface GeneratedExplanation {
   text: string;
   cited_recall_ids: number[];
   fallback_reason: string | null;
+  /** AI answers only: whether the model judged the notices to concern the product. */
+  evidence_sufficient: boolean | null;
+  generation: GenerationStats | null;
 }
 
 export interface ExplainResponse {

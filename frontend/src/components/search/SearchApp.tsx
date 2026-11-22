@@ -20,8 +20,16 @@ import { ResultRow } from "./ResultRow";
 import { useApi } from "./use-api";
 
 const TOP_K = 10;
+// Matches Tailwind's `lg` breakpoint: at this width results and the detail panel sit side
+// by side, so selecting a row updates the panel instead of navigating to the recall page.
 const WIDE = "(min-width: 1024px)";
 
+/**
+ * The /search page. The URL is the single source of truth (query, model, filters, selected
+ * notice), so every state can be shared, bookmarked and restored with Back/Forward. Each
+ * request is keyed by its JSON body: changing any input cancels the previous fetch in
+ * `useApi`, so a slow response for an old query can never overwrite a newer one.
+ */
 export function SearchApp() {
   const params = useSearchParams();
   const router = useRouter();
@@ -39,9 +47,11 @@ export function SearchApp() {
   const search = useApi(searchKey, (signal) => api.search(request!, signal));
   const recent = useApi(state.q ? null : "recent", (signal) => api.recent(5, signal));
 
+  // While a new search loads, keep showing (dimmed) the previous results instead of blanking.
   const response = search.data ?? (search.loading ? search.previous : undefined);
   const results = response?.results ?? [];
   const checks = new Map(response?.identifier_checks.map((c) => [c.recall_id, c]));
+  // A stale ?id= (not in the current results) falls back to the top result.
   const selected = results.find((h) => h.recall_id === state.id) ?? results[0];
   const status = models.data?.models.find((m) => m.model === state.model);
   const info = modelInfo(state.model);
@@ -50,6 +60,8 @@ export function SearchApp() {
   // q, model and filters push history; selecting a row replaces it (one Back = previous query).
   const go = (next: Partial<SearchState>) => router.push(searchHref({ ...state, id: null, ...next }));
   const select = (id: number) => router.replace(searchHref({ ...state, id }), { scroll: false });
+  // Rows are real links to /recalls/[id] (work without JS, open in new tabs); only a left
+  // click without Ctrl/Meta/Shift on a wide screen is intercepted to fill the side panel.
   const onRowClick = (event: MouseEvent<HTMLAnchorElement>, id: number) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     if (window.matchMedia(WIDE).matches) {

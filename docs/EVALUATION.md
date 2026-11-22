@@ -133,7 +133,10 @@ relevant recall's title. Nothing is written when there are errors.
 ### 3a. Single-annotator mode (one person writes and judges)
 
 Use this when only one team member is available to write and label queries. Nothing is
-presented as independently reviewed.
+presented as independently reviewed. The status asserts that the author's *own* judgments
+are recorded: queries or labels produced with AI assistance (such as the 29 current drafts in
+`vd.jsonl`, see `CONTRIBUTIONS.md`) must not be finalized as `single_annotator` without
+disclosing that in every reported result.
 
 | Status | Who checked the labels | Evaluated |
 |---|---|---|

@@ -21,6 +21,8 @@ export function CompareModels() {
       MODELS.map((m) =>
         api.search({ query: query!, model: m.key, top_k: 5 }, signal).then(
           (r): Outcome => ({ model: m.key, hits: r.results }),
+          // One model failing (e.g. its checkpoint is missing: 503) must not hide the others,
+          // so each request settles to an Outcome; only a cancellation propagates.
           (error): Outcome => {
             if (signal.aborted) throw error;
             return { model: m.key, error: errorMessage(error) };

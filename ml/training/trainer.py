@@ -31,6 +31,10 @@ from training.model import MeanPoolEncoder
 
 
 def set_seed(seed: int) -> None:
+    """Seed every RNG that affects a run (batch order, negative sampling, dropout, init).
+
+    Deterministic algorithms are requested with warn_only=True: on CPU this makes repeated
+    runs identical (tested), while ops without a deterministic kernel warn instead of failing."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -41,10 +45,21 @@ def contrastive_loss(
     queries: torch.Tensor, candidates: torch.Tensor, query_groups: list[str],
     candidate_groups: list[str], scale: float, extra_mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """queries (B, H), candidates (B + M, H): the first B candidates are the positives.
+    """InfoNCE / MultipleNegativesRanking loss over in-batch (and optional hard) negatives.
 
-    `extra_mask` (B, B + M, bool): further candidates to exclude from qi's softmax (e.g.
-    positives of other queries with the same text); the diagonal is never masked."""
+    queries (B, H), candidates (B + M, H), all unit vectors; the first B candidates are the
+    positives, in query order, so query i's correct "class" is column i. Each row of logits
+    is a softmax over every candidate, which pulls q_i towards p_i and pushes it away from all
+    other positives in the batch (free negatives) and from the M mined hard negatives.
+
+    `scale` (e.g. 20) is an inverse temperature: cosines lie in [-1, 1], which would give an
+    almost flat softmax; scaling sharpens it so the loss keeps a useful gradient.
+
+    Masking with -inf removes a candidate from the softmax entirely (exp(-inf) = 0). It is
+    used for candidates from the same split group as the query's positive: they may describe
+    the same product, so treating them as negatives would teach the model something false.
+    `extra_mask` (B, B + M, bool) adds further exclusions (e.g. another query with identical
+    text); the diagonal (the query's own positive) is never masked."""
     batch = queries.shape[0]
     logits = scale * queries @ candidates.T                                  # (B, B + M)
     same = torch.tensor([[qg == cg for cg in candidate_groups] for qg in query_groups],
@@ -58,6 +73,7 @@ def contrastive_loss(
 
 @dataclass
 class TrainingResult:
+    """Outcome of `train`: per-epoch history, the selected epoch and where the run lives."""
     history: dict = field(default_factory=dict)
     best_epoch: int | None = None
     best_validation_loss: float | None = None
@@ -96,6 +112,11 @@ def duplicate_text_mask(queries: list[str], num_candidates: int) -> torch.Tensor
 
 def _batch_loss(model, chunk, texts, group_of, scale, rng: random.Random | None,
                 mask_duplicate_texts: bool = False) -> torch.Tensor:
+    """Encode one batch and compute its loss.
+
+    Model C pairs carry mined hard negatives: training samples one per query per step (`rng`,
+    so each epoch sees different look-alikes); validation (`rng=None`) always takes the first,
+    so validation loss is deterministic and comparable across epochs and models."""
     negatives = []
     for p in chunk:
         if p.negative_ids:

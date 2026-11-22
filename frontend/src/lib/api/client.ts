@@ -80,6 +80,8 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 2000
   return (await response.json()) as T;
 }
 
+export const EXPLAIN_TIMEOUT_MS = 45000;
+
 const post = (body: SearchRequest, signal?: AbortSignal): RequestInit => ({
   method: "POST",
   body: JSON.stringify(body),
@@ -88,7 +90,9 @@ const post = (body: SearchRequest, signal?: AbortSignal): RequestInit => ({
 
 export const api = {
   search: (body: SearchRequest, signal?: AbortSignal) => request<SearchResponse>("/search", post(body, signal)),
-  explain: (body: SearchRequest, signal?: AbortSignal) => request<ExplainResponse>("/explain", post(body, signal)),
+  // Longer timeout: the server may call an LLM (bounded by RECALLIQ_LLM_TIMEOUT_SECONDS + retries).
+  explain: (body: SearchRequest, signal?: AbortSignal) =>
+    request<ExplainResponse>("/explain", post(body, signal), EXPLAIN_TIMEOUT_MS),
   models: (signal?: AbortSignal) => request<ModelList>("/search/models", { signal }),
   recall: (id: number, signal?: AbortSignal) => request<RecallDetail>("/recalls/" + id, { signal }),
   recent: (limit = 5, signal?: AbortSignal) => request<RecallPage>("/recalls?limit=" + limit, { signal }),

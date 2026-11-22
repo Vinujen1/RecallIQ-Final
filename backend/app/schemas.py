@@ -10,6 +10,8 @@ Confidence = Literal["high", "medium", "low"]
 
 
 class RecallSummary(BaseModel):
+    """One official recall notice as listed in pages and search results."""
+
     id: int = Field(description="Official Government of Canada recall NID")
     title: str
     url: str = Field(description="Official recalls-rappels.canada.ca page")
@@ -24,6 +26,8 @@ class RecallSummary(BaseModel):
 
 
 class RecallDetail(RecallSummary):
+    """Full stored record for one notice, including RecallIQ's own grouping fields (labelled as such in the UI)."""
+
     product: str | None
     issue: str | None
     what_you_should_do: str | None
@@ -36,6 +40,8 @@ class RecallDetail(RecallSummary):
 
 
 class RecallPage(BaseModel):
+    """Newest-first page of notices with the total count for pagination."""
+
     items: list[RecallSummary]
     total: int = Field(ge=0)
     limit: int
@@ -43,12 +49,16 @@ class RecallPage(BaseModel):
 
 
 class CategoryCount(BaseModel):
+    """An official category and how many indexed notices list it."""
+
     category: str
     domain: Domain
     count: int = Field(ge=1)
 
 
 class CategoryList(BaseModel):
+    """All official categories in the index (feeds the category filter)."""
+
     items: list[CategoryCount]
     total: int = Field(ge=0)
 
@@ -59,6 +69,8 @@ IdentifierVerdict = Literal["MATCH", "MISMATCH", "UNKNOWN"]
 
 
 class SearchRequest(BaseModel):
+    """Consumer query, retrieval model and optional filters (applied before ranking)."""
+
     query: str = Field(min_length=1, max_length=500, description="Free-text consumer query")
     model: SearchModel = Field(default="bm25", description="Retrieval model")
     top_k: int = Field(default=10, ge=1, le=50)
@@ -85,6 +97,8 @@ class SearchRequest(BaseModel):
 
 
 class SearchHit(BaseModel):
+    """One ranked notice. Interpret `score` only with the response's `score_type`."""
+
     rank: int = Field(ge=1)
     recall_id: int = Field(description="Official Government of Canada recall NID")
     title: str
@@ -99,6 +113,8 @@ class SearchHit(BaseModel):
 
 
 class IdentifierTypeCheck(BaseModel):
+    """Exact comparison for one identifier type (UPC, model, lot or best-before)."""
+
     verdict: IdentifierVerdict
     query_values: list[str] = Field(description="Normalised identifiers found in the query")
     evidence_values: list[str] = Field(description="Normalised identifiers in the recall record")
@@ -106,6 +122,8 @@ class IdentifierTypeCheck(BaseModel):
 
 
 class IdentifierCheck(BaseModel):
+    """Deterministic identifier verdict for one result."""
+
     recall_id: int
     verdict: IdentifierVerdict = Field(
         description="MATCH / MISMATCH only when both the query and the official recall record "
@@ -114,6 +132,8 @@ class IdentifierCheck(BaseModel):
 
 
 class SearchResponse(BaseModel):
+    """Ranked notices plus identifier checks, aligned by position with `results`."""
+
     query: str
     model: SearchModel
     score_type: ScoreType
@@ -131,7 +151,11 @@ class SearchResponse(BaseModel):
 
 
 class ExplainRequest(SearchRequest):
-    top_k: int = Field(default=5, ge=1, le=5, description="Results considered as evidence")
+    """Same as a search request; `top_k` is capped at 5 because the results become RAG evidence."""
+
+    top_k: int | None = Field(
+        default=None, ge=1, le=5,
+        description="Results retrieved and considered as evidence (default: RECALLIQ_RAG_TOP_K)")
 
 
 class EvidenceFact(BaseModel):
@@ -145,14 +169,34 @@ class EvidenceFact(BaseModel):
     category: str | None
     recall_class: str | None
     last_updated: str | None
+    what_you_should_do: str | None = Field(
+        default=None, description="Official 'what you should do' text, verbatim (null = not listed)")
     identifier_verdict: IdentifierVerdict
+
+
+class GenerationStats(BaseModel):
+    """Observability for the LLM step. Never contains the API key or the prompt."""
+    provider: str
+    model: str | None
+    outcome: str = Field(description="accepted | rejected | error:<code> | skipped:<evidence_status>")
+    prompt_version: str
+    latency_ms: int | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 class GeneratedExplanation(BaseModel):
     generator: str = Field(description='"template" (deterministic) or "llm:<provider>"')
     text: str = Field(description="Generated from the evidence above; not an official statement")
-    cited_recall_ids: list[int]
-    fallback_reason: str | None = None
+    cited_recall_ids: list[int] = Field(description="Evidence recall ids the text relies on")
+    fallback_reason: str | None = Field(
+        default=None, description="Why the deterministic template is shown instead of an AI answer")
+    evidence_sufficient: bool | None = Field(
+        default=None, description="AI answers only: whether the model judged the notices to "
+                                  "concern the product asked about")
+    generation: GenerationStats | None = Field(
+        default=None, description="Present when an LLM provider is configured")
 
 
 class ExplainResponse(BaseModel):
@@ -168,6 +212,8 @@ class ExplainResponse(BaseModel):
 
 
 class ModelStatus(BaseModel):
+    """Whether one retrieval model can be served right now, and why not."""
+
     model: SearchModel
     available: bool
     score_type: ScoreType
@@ -176,4 +222,6 @@ class ModelStatus(BaseModel):
 
 
 class ModelList(BaseModel):
+    """Availability of all four retrieval models (drives the model selector)."""
+
     models: list[ModelStatus]

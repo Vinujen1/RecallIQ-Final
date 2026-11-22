@@ -14,6 +14,12 @@ const parseId = (raw: string) => {
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 };
 
+/**
+ * /recalls/[id]: one official notice, rendered on the server. The static shell (back link,
+ * skeleton) prerenders; the record streams in inside Suspense (Cache Components). Unknown
+ * ids get a real 404 from src/proxy.ts before streaming starts; notFound() below is the
+ * fallback when the proxy check could not run.
+ */
 export default function RecallPage({ params }: { params: Promise<{ id: string }> }) {
   return (
     <div className="mx-auto w-full max-w-[1100px] px-4 pb-20 pt-4 sm:px-6 lg:px-10 lg:pt-8">

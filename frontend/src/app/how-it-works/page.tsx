@@ -1,3 +1,4 @@
+// Method page: pipeline, models, identifier checks, RAG safeguards, limits and FAQ (static).
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLink } from "@/components/ui/ExternalLink";
@@ -13,7 +14,7 @@ const PIPELINE = [
   { title: "Your description", body: "Plain words, and any UPC, model, lot or best-before code you type." },
   { title: "Ranking", body: "BM25 or a MiniLM model orders the 1,000 notices by shared keywords or meaning." },
   { title: "Code check", body: "Codes in your search are compared exactly with codes stored for each notice." },
-  { title: "Evidence summary", body: "On request, a fixed template restates fields from the top notices." },
+  { title: "Evidence summary", body: "On request, a short summary of the top notices; its codes, names, links and safety wording are checked first." },
   { title: "Official notice", body: "Every result links to the Government of Canada page it came from." },
 ];
 
@@ -127,12 +128,20 @@ export default function HowItWorksPage() {
         </div>
         <div className="space-y-3 text-fg-2">
           <p>
-            The summary is produced by a fixed template from fields stored for the top notices: title, product, issue, category,
-            recall class and date. It does not use a language model to write text, and it marks missing fields as not listed.
+            When AI summaries are switched on, a language model (GPT-4o-mini) writes a short summary using only the fields stored
+            for up to three top notices: title, product, issue, category, recall class, date and what the notice says to do. It is
+            labelled as AI-written and lists the notices it relied on, each linked to the official page.
           </p>
           <p>
-            Notices whose codes conflict with yours are set aside and counted. A future language-model summary would have to pass
-            a grounding check that rejects any code or recall ID not present in the evidence.
+            Before it is shown, RecallIQ checks the summary against those notices. Any code, number, recall ID, name or quotation
+            that is not in them, any link that is not an official notice, any claim that a product is safe, or any claim that a code
+            matches when the exact code check did not find a match causes it to be rejected.
+          </p>
+          <p>
+            If there is no evidence to summarise, the summary is rejected, or the AI service is unavailable, a fixed template
+            restates the stored fields instead; when the AI step failed, it says why. These checks catch invented details and
+            unsafe claims, but cannot prove every reworded sentence, so always read the official notice. Notices whose codes
+            conflict with yours are set aside and counted.
           </p>
         </div>
       </section>
