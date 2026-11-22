@@ -1,0 +1,14 @@
+# Makes ml/ importable (recall_data, retrieval) from the backend and scripts via
+# `pip install -e ml`. Dependency pins live in ml/requirements.txt.
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recalliq-ml"
+version = "0.2.0"
+description = "RecallIQ data pipeline and retrieval components"
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+include = ["recall_data*", "retrieval*"]

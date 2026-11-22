@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     # SQLite database produced by the ml/ data pipeline (opened read-only by the API).
     database_path: Path = REPO_ROOT / "data" / "processed" / "recalliq.db"
+    # Precomputed MiniLM embeddings built by `python -m retrieval.embed` (git-ignored).
+    embeddings_dir: Path = REPO_ROOT / "ml" / "artifacts" / "embeddings" / "all-MiniLM-L6-v2"
 
     @property
     def cors_origin_list(self) -> list[str]:

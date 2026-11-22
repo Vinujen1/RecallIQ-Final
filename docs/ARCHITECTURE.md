@@ -56,6 +56,12 @@ files are git-ignored.
 | GET | `/recalls?limit=20&offset=0` | `{"items":[RecallSummary], "total", "limit", "offset"}` newest first | 422 bad paging, 503 no DB |
 | GET | `/recalls/{id}` | `RecallDetail` (all fields incl. family + review flags) | 404, 422, 503 |
 | GET | `/categories` | `{"items":[{"category","domain","count"}], "total"}` | 503 |
+| POST | `/search` | `{"query","model","score_type","score_description","top_k","results":[{"rank","recall_id","title","category","issue","url","score"}]}` | 422 invalid body, 503 no DB / MiniLM index unavailable |
+
+**Shared retrieval code.** `ml/retrieval` is installed in editable mode (`pip install -e
+ml`) and imported by both the offline embedding script and the API, so documents and
+queries are encoded by the same code and the same pinned model revision. See
+[`RETRIEVAL.md`](RETRIEVAL.md).
 
 ## Data model (SQLite, `data/processed/recalliq.db`)
 

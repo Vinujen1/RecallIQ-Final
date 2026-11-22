@@ -1,1 +1,3 @@
 pandas>=2.2,<4.0
+# Phase 2A retrieval (pulls in torch, transformers, huggingface_hub)
+sentence-transformers>=6.3,<7.0

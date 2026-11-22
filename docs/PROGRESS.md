@@ -7,6 +7,7 @@ the next begins.
 | ----- | ---------------------- | ----------- | ---------- |
 | 1A    | Project initialization | ✅ Complete | 2026-11-15 |
 | 1B    | Canadian recall dataset integration | ✅ Complete | 2026-11-15 |
+| 2A    | BM25 + pretrained MiniLM retrieval | ✅ Complete | 2026-11-15 |
 
 ---
 
@@ -102,6 +103,59 @@ Full method: [`DATA_PIPELINE.md`](DATA_PIPELINE.md).
 
 ### Explicitly out of scope
 New frontend pages, PostgreSQL/Supabase, RAG, MiniLM training, scraping, deployment.
+
+---
+
+## Phase 2A — BM25 and pretrained MiniLM retrieval
+
+**Goal:** lexical and semantic search over the existing 1,000-record corpus, served by
+`POST /search`, without any training. Details: [`RETRIEVAL.md`](RETRIEVAL.md).
+
+### Delivered
+- `ml/retrieval/` — `corpus` (deterministic `search_text` + fingerprint), `bm25` (Okapi),
+  `semantic` (MiniLM encoder, embedding store, cosine), `search` (shared interface,
+  `bm25` | `minilm`), `loader`, `embed` (CLI), `smoke` (CLI).
+- `ml/recall_data/family_review.py` — exports the 458 `needs_review` records to CSV.
+- `ml/pyproject.toml` — `pip install -e ml` makes `recall_data`/`retrieval` importable.
+- Backend: `app/search_service.py` (cached engine, 503 on unavailable index),
+  `app/routers/search.py` (`POST /search`), search schemas, `embeddings_dir` setting,
+  CORS now allows POST.
+- Tests: `tests/ml/test_retrieval.py`, `tests/backend/test_search_api.py`, `FakeEncoder`
+  in `tests/conftest.py`.
+
+### Results
+| Item | Value |
+| --- | --- |
+| Model | `sentence-transformers/all-MiniLM-L6-v2` @ `1110a243fdf4706b3f48f1d95db1a4f5529b4d41` (pretrained, no fine-tuning) |
+| Embeddings | (1000, 384) float32, unit-norm; `embeddings.npy` 1,536,128 bytes |
+| Reproducibility | re-running `retrieval.embed` gives a bitwise-identical file (same environment) |
+| Retrieval quality | **not measured** — no independent relevance judgments yet |
+
+### Verification (2026-11-15)
+| Check | Result |
+| --- | --- |
+| `python -m pytest` | PASS — 106 passed, 0 failed, 0 skipped (incl. real-embedding + real-API tests) |
+| `python -m retrieval.embed` (x3) | PASS — identical `embeddings.npy` hash each run |
+| `python -m retrieval.smoke` | PASS — 6 queries, both models return results with official recall ids |
+| Live API (uvicorn :8001) `POST /search` bm25 + minilm | PASS — 200, labelled `score_type`; invalid input → 422 |
+| Independent reviews | `ecc:mle-reviewer`: 0 high; 4 medium + 1 low fixed (500→503 paths, code-level revision pin, model-load failure cache, matrix validation, server faults no longer 422) |
+
+### Known issues / notes
+- The brief referenced an existing `search_text` field; none existed. It is derived in
+  `retrieval/corpus.py` from verbatim fields (Phase 1B schema unchanged).
+- No held-out test split exists yet; Phase 2A tuned nothing on data.
+- BM25 shows surface-token matches in the smoke test ("can" → "6 Can Mini Fridge");
+  intentionally not tuned to those queries.
+- 458 heuristic product families remain unverified; an informal spot check found clear
+  errors (see RETRIEVAL.md). They are excluded from `search_text`.
+- First MiniLM request loads the model (~14 s on this machine); later requests ~16 ms
+  median locally (informal, 5 requests).
+- The initial unfiltered model download put ~977 MB in the user-level Hugging Face cache
+  (`~/.cache/huggingface`); only ~92 MB is needed. Downloads are now filtered; the extra
+  files were left in place (outside the project) pending the owner's decision.
+
+### Explicitly out of scope
+Fine-tuning, hard negatives, RAG/LLM calls, frontend changes, evaluation metrics.
 
 ---
 

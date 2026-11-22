@@ -75,6 +75,47 @@ def write_csv(path: Path, rows: list[dict[str, str]], columns=RAW_COLUMNS) -> Pa
     return path
 
 
+class FakeEncoder:
+    """Deterministic stand-in for MiniLM in unit tests (hashed bag of words, unit length).
+
+    It has none of MiniLM's semantics; it only lets tests exercise indexing, id mapping
+    and cosine ranking without downloading a model.
+    """
+
+    dimension = 16
+
+    def encode(self, texts: list[str]) -> "np.ndarray":
+        import zlib
+
+        import numpy as np
+
+        from retrieval.bm25 import tokenize
+
+        matrix = np.zeros((len(texts), self.dimension), dtype=np.float32)
+        for row, text in enumerate(texts):
+            matrix[row, 0] = 0.1  # bias so no vector is all-zero
+            for token in tokenize(text):
+                matrix[row, 1 + zlib.crc32(token.encode()) % (self.dimension - 1)] += 1.0
+        return matrix / np.linalg.norm(matrix, axis=1, keepdims=True)
+
+
+def build_fake_embeddings(db_path: Path, out_dir: Path) -> Path:
+    """Write embedding artifacts for the fixture DB using FakeEncoder."""
+    from retrieval.corpus import corpus_fingerprint, load_corpus
+    from retrieval.semantic import save_embeddings
+
+    corpus = load_corpus(db_path)
+    matrix = FakeEncoder().encode([r.search_text for r in corpus])
+    save_embeddings(
+        out_dir,
+        [r.recall_id for r in corpus],
+        matrix,
+        {"model_id": "fake", "model_revision": None, "dimension": FakeEncoder.dimension,
+         "corpus_fingerprint": corpus_fingerprint(corpus)},
+    )
+    return out_dir
+
+
 @pytest.fixture
 def raw_csv(tmp_path: Path) -> Path:
     return write_csv(tmp_path / "fixture.csv", HAND_WRITTEN_ROWS + _generated_rows(GENERATED_COUNT))

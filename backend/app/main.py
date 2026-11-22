@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import health, recalls
+from app.routers import health, recalls, search
 
 
 def create_app() -> FastAPI:
@@ -18,12 +18,13 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
 
     app.include_router(health.router)
     app.include_router(recalls.router)
+    app.include_router(search.router)
     return app
 
 
