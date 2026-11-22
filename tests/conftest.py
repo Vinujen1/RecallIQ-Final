@@ -116,6 +116,53 @@ def build_fake_embeddings(db_path: Path, out_dir: Path) -> Path:
     return out_dir
 
 
+#: Evaluation fixture rows (SYNTHETIC): pairs with known grouping behaviour.
+NEAR_DUPLICATE_ROWS = [
+    # same product, Jaccard 0.75 -> merged
+    {"NID": "9001", "Title": "Frozen Fish Cake recalled due to undeclared egg",
+     "Organization": "CFIA", "Category": "Fish and seafood"},
+    {"NID": "9002", "Title": "ChoripDong brand Frozen Fish Cake recalled due to undeclared egg",
+     "Organization": "CFIA", "Category": "Fish and seafood"},
+    # same brand, Jaccard 0.5 -> merged by the brand rule
+    {"NID": "9003", "Title": "Ruffles brand Regular Potato Chips recalled due to undeclared milk",
+     "Organization": "CFIA", "Category": "Candy, confectionary, snacks and sweeteners"},
+    {"NID": "9004", "Title": "Ruffles brand Hot Wings Potato Chips recalled due to undeclared milk",
+     "Organization": "CFIA", "Category": "Candy, confectionary, snacks and sweeteners"},
+    # different brands, Jaccard 0.5 -> ambiguous, NOT merged
+    {"NID": "9005", "Title": "Coaticook brand Cheddar Cheese recalled due to Listeria",
+     "Organization": "CFIA", "Category": "Dairy"},
+    {"NID": "9006", "Title": "Avonlea brand Cheddar Cheese recalled due to Listeria",
+     "Organization": "CFIA", "Category": "Dairy"},
+]
+
+
+def _eval_singletons(count: int) -> list[dict[str, str]]:
+    plan = [("CFIA", "Dairy"), ("Consumer product safety", "Toys and games"),
+            ("CFIA", "Fresh"), ("Consumer product safety", "Electronics")]
+    return [
+        {"NID": str(9100 + i), "Title": f"Zq{i} widget{i}", "Organization": plan[i % 4][0],
+         "Category": plan[i % 4][1]}
+        for i in range(count)
+    ]
+
+
+@pytest.fixture
+def eval_env(tmp_path: Path) -> dict:
+    """Synthetic corpus (66 records) + DB + split manifest for evaluation tests."""
+    from evaluation.splits import build_manifest, write_manifest
+    from recall_data.build import run
+
+    rows = [{**r, "Last updated": "2024-01-01", "Archived": "0"}
+            for r in NEAR_DUPLICATE_ROWS + _eval_singletons(60)]
+    out = tmp_path / "processed"
+    run(write_csv(tmp_path / "eval.csv", rows), out, size=1000, seed=1)  # keep all
+    db = out / "recalliq.db"
+    manifest_path = out / "splits" / "splits.json"
+    manifest = build_manifest(db, seed=4110)
+    write_manifest(manifest, manifest_path)
+    return {"db": db, "manifest_path": manifest_path, "manifest": manifest, "tmp": tmp_path}
+
+
 @pytest.fixture
 def raw_csv(tmp_path: Path) -> Path:
     return write_csv(tmp_path / "fixture.csv", HAND_WRITTEN_ROWS + _generated_rows(GENERATED_COUNT))

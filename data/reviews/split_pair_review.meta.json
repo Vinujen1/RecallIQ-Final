@@ -1,0 +1,17 @@
+{
+  "exported_at": "2026-11-16T03:04:35+00:00",
+  "corpus_fingerprint": "7d75d98bb50c7949715ce833e2cc639a499d7c3e90ecf577ae1019e449bb1e2d",
+  "assignment_fingerprint": "e73ce08254cf7cb29fcc57ee9908ae4c10e2d6664bf515457b173e30164d468b",
+  "scope": "all_candidates",
+  "pairs": 81,
+  "by_source": {
+    "lexical_ambiguous": 48,
+    "semantic_audit": 32,
+    "manual_link": 8
+  },
+  "decided": 46,
+  "assistant_proposals": {
+    "file": "assistant_proposals.json",
+    "status": "AI-generated suggestions from titles/categories only \u2014 NOT human verified"
+  }
+}

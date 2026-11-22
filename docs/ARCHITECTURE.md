@@ -56,7 +56,28 @@ files are git-ignored.
 | GET | `/recalls?limit=20&offset=0` | `{"items":[RecallSummary], "total", "limit", "offset"}` newest first | 422 bad paging, 503 no DB |
 | GET | `/recalls/{id}` | `RecallDetail` (all fields incl. family + review flags) | 404, 422, 503 |
 | GET | `/categories` | `{"items":[{"category","domain","count"}], "total"}` | 503 |
-| POST | `/search` | `{"query","model","score_type","score_description","top_k","results":[{"rank","recall_id","title","category","issue","url","score"}]}` | 422 invalid body, 503 no DB / MiniLM index unavailable |
+| POST | `/search` | `{"query","model","score_type","score_description","top_k","results":[{"rank","recall_id","title","category","issue","url","score"}], "identifiers_in_query", "identifier_checks":[{"recall_id","verdict","by_type"}], "notice"}` — `model` ∈ `bm25`, `minilm` (A), `minilm_finetuned` (B), `minilm_hard_negative` (C) | 422 invalid body / unknown model, 503 no DB / selected model's checkpoint or index unavailable or incompatible |
+| GET | `/search/models` | `{"models":[{"model","available","score_type","description","reason"}]}` | 503 no DB |
+| POST | `/explain` | `{"query","model","evidence_status","retrieved_facts":[…stored fields…],"explanation":{"generator","text","cited_recall_ids","fallback_reason"},"sources":[official URLs],"disclaimer"}` (`top_k` ≤ 5) | as `/search` |
+
+Phase 4 additions are **additive**: the original `/search` request and every original
+response field are unchanged (existing tests pass unmodified).
+
+**Fine-tuned models in the API.** Each of B and C = a checkpoint directory + an embedding
+index built by that checkpoint (`python -m retrieval.finetuned`). The index's metadata
+records the checkpoint's weights SHA-256; at load time the API refuses (503 with the reason)
+an index whose weights hash, dimension, recall ids or corpus fingerprint do not match. Paths:
+`RECALLIQ_MODEL_B_CHECKPOINT`, `RECALLIQ_MODEL_B_EMBEDDINGS_DIR`, `RECALLIQ_MODEL_C_CHECKPOINT`,
+`RECALLIQ_MODEL_C_EMBEDDINGS_DIR` (defaults: `ml/artifacts/models/model-{b,c}-v1/checkpoints/best`,
+`ml/artifacts/embeddings/model-{b,c}-v1`). A missing model only disables that model.
+Scores: BM25 and cosine similarity are labelled by `score_type` and never compared.
+
+**Identifier checks** (`ml/verification/identifiers.py`): exact, deterministic comparison of
+UPC / model / lot / best-before codes in the query vs the indexed recall record; MATCH or
+MISMATCH only when both sides list that identifier type, else UNKNOWN. **Explanations**
+(`ml/rag/pipeline.py`): evidence = stored fields of the top results only; deterministic
+template generator by default (no network, no key); `RECALLIQ_LLM_PROVIDER` reserved for a
+future LLM adapter whose output must pass `check_grounded`, otherwise the template is used.
 
 **Shared retrieval code.** `ml/retrieval` is installed in editable mode (`pip install -e
 ml`) and imported by both the offline embedding script and the API, so documents and

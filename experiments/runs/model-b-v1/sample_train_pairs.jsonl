@@ -1,0 +1,20 @@
+{"query_id": "train-21694-title_core", "query": "HenlePro Blackout Roller Shade", "positive_id": 21694, "negative_ids": [], "source": "pseudo:title_core"}
+{"query_id": "train-21694-consumer_question", "query": "henlepro blackout roller shade recall", "positive_id": 21694, "negative_ids": [], "source": "pseudo:consumer_question"}
+{"query_id": "train-21704-title_core", "query": "Trikes and Tough Trikes Toddler Tricycles", "positive_id": 21704, "negative_ids": [], "source": "pseudo:title_core"}
+{"query_id": "train-21704-consumer_question", "query": "is my trikes and tough trikes toddler tricycles safe", "positive_id": 21704, "negative_ids": [], "source": "pseudo:consumer_question"}
+{"query_id": "train-21726-title_core", "query": "Frontgate Foldaway Closet Ladders", "positive_id": 21726, "negative_ids": [], "source": "pseudo:title_core"}
+{"query_id": "train-21726-consumer_question", "query": "frontgate foldaway closet ladders recall", "positive_id": 21726, "negative_ids": [], "source": "pseudo:consumer_question"}
+{"query_id": "train-21730-title_core", "query": "Carre Condo Cribs with brand name Trama", "positive_id": 21730, "negative_ids": [], "source": "pseudo:title_core"}
+{"query_id": "train-21730-generic_issue", "query": "name Trama", "positive_id": 21730, "negative_ids": [], "source": "pseudo:generic_issue"}
+{"query_id": "train-21730-consumer_question", "query": "is my name trama safe", "positive_id": 21730, "negative_ids": [], "source": "pseudo:consumer_question"}
+{"query_id": "train-21730-brand_product", "query": "Carre Condo Cribs with name trama", "positive_id": 21730, "negative_ids": [], "source": "pseudo:brand_product"}
+{"query_id": "train-21734-title_core", "query": "Smart AC 120W USB Inverter by Wagan® Tech", "positive_id": 21734, "negative_ids": [], "source": "pseudo:title_core"}
+{"query_id": "train-21734-consumer_question", "query": "was smart ac 120w usb inverter by recalled", "positive_id": 21734, "negative_ids": [], "source": "pseudo:consumer_question"}
+{"query_id": "train-21744-title_core", "query": "Fisher-Price Little People Play 'n Go Campsite™", "positive_id": 21744, "negative_ids": [], "source": "pseudo:title_core"}
+{"query_id": "train-21744-consumer_question", "query": "was fisher-price little people play 'n go recalled", "positive_id": 21744, "negative_ids": [], "source": "pseudo:consumer_question"}
+{"query_id": "train-21762-title_core", "query": "Aluminum and Chrome Car polish", "positive_id": 21762, "negative_ids": [], "source": "pseudo:title_core"}
+{"query_id": "train-21762-consumer_question", "query": "was aluminum and chrome car polish recalled", "positive_id": 21762, "negative_ids": [], "source": "pseudo:consumer_question"}
+{"query_id": "train-21775-title_core", "query": "Jump Seat on certain Baby Jogger Strollers", "positive_id": 21775, "negative_ids": [], "source": "pseudo:title_core"}
+{"query_id": "train-21775-consumer_question", "query": "jump seat on certain baby jogger recall", "positive_id": 21775, "negative_ids": [], "source": "pseudo:consumer_question"}
+{"query_id": "train-21776-title_core", "query": "Model 8 Roadsters Toy Car", "positive_id": 21776, "negative_ids": [], "source": "pseudo:title_core"}
+{"query_id": "train-21776-consumer_question", "query": "model 8 roadsters toy car recall", "positive_id": 21776, "negative_ids": [], "source": "pseudo:consumer_question"}

@@ -5,9 +5,12 @@
 RecallIQ will ingest public Canadian product recall data, apply deep-learning models to
 classify and analyse recalls, and present the results through a web interface.
 
-> **Status:** Phase 2A (BM25 + pretrained MiniLM retrieval) — see
+> **Status:** Phase 2C (split review prepared; **awaiting human review** in
+> `data/reviews/split_pair_review.csv`) — see
 > [`docs/PROGRESS.md`](docs/PROGRESS.md). The API serves and searches 1,000 real
-> Government of Canada recall records. No fine-tuning, RAG, or application pages yet.
+> Government of Canada recall records; leakage-aware splits and a human-annotation
+> workflow exist, but **no relevance judgments or accuracy metrics yet**. No fine-tuning,
+> RAG, or application pages.
 
 ## Architecture
 
@@ -15,7 +18,7 @@ classify and analyse recalls, and present the results through a web interface.
 RecallIQ/
 ├── frontend/   Next.js (App Router) + TypeScript + Tailwind CSS + ESLint
 ├── backend/    FastAPI (Python) — read-only REST API over the recall SQLite database
-├── ml/         recall_data/ pandas pipeline; retrieval/ BM25 + MiniLM search
+├── ml/         recall_data/ pipeline; retrieval/ BM25 + MiniLM; evaluation/ splits + metrics
 ├── data/       raw/ official CSV, processed/ JSONL + SQLite (contents git-ignored)
 ├── docs/       Architecture notes and phase progress log
 └── tests/      Automated tests (pytest for backend; more later)
@@ -29,7 +32,19 @@ data/raw/HCRSAMOpenData.csv ──► ml/recall_data ──► data/processed/re
 
 More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/DATA_PIPELINE.md`](docs/DATA_PIPELINE.md) (filtering, sampling, product families)
-and [`docs/RETRIEVAL.md`](docs/RETRIEVAL.md) (search models, score semantics, leakage).
+[`docs/RETRIEVAL.md`](docs/RETRIEVAL.md) (search models, score semantics, leakage) and
+[`docs/EVALUATION.md`](docs/EVALUATION.md) (splits, annotation workflow, metrics) and
+[`docs/TRAINING.md`](docs/TRAINING.md) (Model B contrastive fine-tuning; not yet run on real data).
+
+### Evaluation workflow (Phase 2B)
+
+```bash
+python -m evaluation.splits                                   # leakage-aware 60/20/20 split
+python -m evaluation.annotate --annotator AB --out data/annotations/ab.jsonl
+python -m evaluation.annotations validate data/annotations/queries.jsonl
+python -m evaluation.evaluate --split validation              # BM25 vs MiniLM
+```
+Human queries live in `data/annotations/` (tracked); see its README.
 
 ## Prerequisites
 

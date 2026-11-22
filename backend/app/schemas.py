@@ -53,8 +53,9 @@ class CategoryList(BaseModel):
     total: int = Field(ge=0)
 
 
-SearchModel = Literal["bm25", "minilm"]
+SearchModel = Literal["bm25", "minilm", "minilm_finetuned", "minilm_hard_negative"]
 ScoreType = Literal["bm25", "cosine_similarity"]
+IdentifierVerdict = Literal["MATCH", "MISMATCH", "UNKNOWN"]
 
 
 class SearchRequest(BaseModel):
@@ -81,6 +82,21 @@ class SearchHit(BaseModel):
     score: float = Field(description="Interpret using the response's score_type")
 
 
+class IdentifierTypeCheck(BaseModel):
+    verdict: IdentifierVerdict
+    query_values: list[str] = Field(description="Normalised identifiers found in the query")
+    evidence_values: list[str] = Field(description="Normalised identifiers in the recall record")
+    matched: list[str]
+
+
+class IdentifierCheck(BaseModel):
+    recall_id: int
+    verdict: IdentifierVerdict = Field(
+        description="MATCH / MISMATCH only when both the query and the official recall record "
+                    "contain identifiers of the same type; otherwise UNKNOWN")
+    by_type: dict[str, IdentifierTypeCheck] = Field(description="upc, model, lot, best_before")
+
+
 class SearchResponse(BaseModel):
     query: str
     model: SearchModel
@@ -88,3 +104,58 @@ class SearchResponse(BaseModel):
     score_description: str
     top_k: int
     results: list[SearchHit]
+    identifiers_in_query: bool = Field(
+        default=False, description="Whether the query names a UPC / model / lot / best-before")
+    identifier_checks: list[IdentifierCheck] = Field(
+        default_factory=list,
+        description="Deterministic exact identifier comparison per result (same order)")
+    notice: str = Field(default="", description="How to interpret the results")
+
+
+class ExplainRequest(SearchRequest):
+    top_k: int = Field(default=5, ge=1, le=5, description="Results considered as evidence")
+
+
+class EvidenceFact(BaseModel):
+    """Fields copied verbatim from the indexed official recall record (null = not listed)."""
+    rank: int
+    recall_id: int
+    title: str
+    url: str
+    product: str | None
+    issue: str | None
+    category: str | None
+    recall_class: str | None
+    last_updated: str | None
+    identifier_verdict: IdentifierVerdict
+
+
+class GeneratedExplanation(BaseModel):
+    generator: str = Field(description='"template" (deterministic) or "llm:<provider>"')
+    text: str = Field(description="Generated from the evidence above; not an official statement")
+    cited_recall_ids: list[int]
+    fallback_reason: str | None = None
+
+
+class ExplainResponse(BaseModel):
+    query: str
+    model: SearchModel
+    evidence_status: Literal["no_results", "identifier_mismatch", "evidence_found"]
+    retrieved_facts: list[EvidenceFact]
+    skipped_identifier_mismatches: int = Field(
+        default=0, description="Higher-ranked results set aside: identifiers conflict with the query")
+    explanation: GeneratedExplanation
+    sources: list[str] = Field(description="Official recall notice URLs used as evidence")
+    disclaimer: str
+
+
+class ModelStatus(BaseModel):
+    model: SearchModel
+    available: bool
+    score_type: ScoreType
+    description: str
+    reason: str | None = None
+
+
+class ModelList(BaseModel):
+    models: list[ModelStatus]

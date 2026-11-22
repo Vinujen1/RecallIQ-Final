@@ -1,0 +1,73 @@
+{
+  "experiment_label": "Model C: Model B + mined and human-verified hard negatives (1 per query per step, sampled from 3)",
+  "config": {
+    "base_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "base_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "seed": 4110,
+    "epochs": 4,
+    "batch_size": 32,
+    "learning_rate": 2e-05,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.1,
+    "max_grad_norm": 1.0,
+    "scale": 20.0,
+    "max_seq_length": 128,
+    "hard_negatives_per_pair": 3,
+    "bm25_candidates": 10,
+    "semantic_candidates": 10,
+    "false_negative_jaccard": 0.5,
+    "pseudo_query_views": [
+      "title_core",
+      "generic_issue",
+      "product_issue",
+      "consumer_question",
+      "brand_product"
+    ],
+    "include_human_train_queries": true,
+    "use_reviewed_distinct_negatives": true,
+    "validation_hard_negatives": 3,
+    "selection_metric": "proxy_mrr@10",
+    "early_stopping_patience": 2,
+    "experiment_label": "Model C: Model B + mined and human-verified hard negatives (1 per query per step, sampled from 3)"
+  },
+  "environment": {
+    "python": "3.12.10",
+    "torch": "2.15.0+cpu",
+    "transformers": "5.23.0",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "git_commit": "76e387085686fd1dba5878b1d3b05e25e430a0b8",
+    "git_dirty": true
+  },
+  "hardware": {
+    "device": "cpu",
+    "cpu_count": 12,
+    "torch_threads": 6,
+    "processor": "AMD64 Family 23 Model 8 Stepping 2, AuthenticAMD",
+    "cuda_available": false
+  },
+  "data": {
+    "split_manifest": "D:\\RecallIQ\\data\\processed\\splits\\recall_splits_v1.json",
+    "split_frozen": true,
+    "assignment_fingerprint": "5612e28dc9e2e4d6ef4fac2392a2ba9d2b649e33f12060122aa749bec37b0987",
+    "corpus_fingerprint": "7d75d98bb50c7949715ce833e2cc639a499d7c3e90ecf577ae1019e449bb1e2d",
+    "human_train_queries": 0,
+    "semantic_hard_negatives": true,
+    "reviewed_distinct_pairs_available": 70,
+    "train_pairs_with_human_verified_negative": 123,
+    "train_pairs_dropped_for_heldout_text_collision": 4,
+    "train_pairs": 1821,
+    "validation_pairs": 593,
+    "train_pairs_with_hard_negatives": 1821,
+    "proxy_validation_queries": 391,
+    "train_pairs_fingerprint": "91507fe32c89da5a0ac7cdd232a3c103daaa6ddb7ecab56e35d8ef625ba49691",
+    "validation_pairs_fingerprint": "18a6003dffa4fcb628c6464f4b9a69dae1f2c3eef4edff2d19273e6ade43a720"
+  },
+  "device": "cpu",
+  "max_steps": null,
+  "scheduled_steps": 228,
+  "truncated_smoke_run": false,
+  "selection_metric_requested": "proxy_mrr@10",
+  "selection_metric_used": "proxy_mrr@10",
+  "model_selection": "highest proxy MRR@10 (validation-split GENERATED queries vs the full index); epoch 0 (base model) included; not evidence of retrieval quality on consumer queries",
+  "loss": "MultipleNegativesRanking (InfoNCE): in-batch negatives + 1 hard negative per query (sampled each step), scale 20.0, same-group candidates masked"
+}

@@ -20,6 +20,17 @@ class Settings(BaseSettings):
     database_path: Path = REPO_ROOT / "data" / "processed" / "recalliq.db"
     # Precomputed MiniLM embeddings built by `python -m retrieval.embed` (git-ignored).
     embeddings_dir: Path = REPO_ROOT / "ml" / "artifacts" / "embeddings" / "all-MiniLM-L6-v2"
+    # Fine-tuned models (git-ignored artifacts): checkpoint dir + index built with it
+    # (`python -m retrieval.finetuned`). Missing files -> that model answers 503.
+    model_b_checkpoint: Path = REPO_ROOT / "ml" / "artifacts" / "models" / "model-b-v1" / "checkpoints" / "best"
+    model_b_embeddings_dir: Path = REPO_ROOT / "ml" / "artifacts" / "embeddings" / "model-b-v1"
+    model_c_checkpoint: Path = REPO_ROOT / "ml" / "artifacts" / "models" / "model-c-v1" / "checkpoints" / "best"
+    model_c_embeddings_dir: Path = REPO_ROOT / "ml" / "artifacts" / "embeddings" / "model-c-v1"
+
+    @property
+    def finetuned_models(self) -> dict[str, tuple[Path, Path]]:
+        return {"minilm_finetuned": (self.model_b_checkpoint, self.model_b_embeddings_dir),
+                "minilm_hard_negative": (self.model_c_checkpoint, self.model_c_embeddings_dir)}
 
     @property
     def cors_origin_list(self) -> list[str]:

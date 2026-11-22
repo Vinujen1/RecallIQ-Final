@@ -1,0 +1,17 @@
+{
+  "experiment_label": "Model C: Model B + mined and human-verified hard negatives (1 per query per step, sampled from 3)",
+  "selection_metric": "proxy_mrr@10",
+  "best_epoch": 4,
+  "best_selection_score": 0.9768755328218244,
+  "best_validation_loss": 0.04986003624875268,
+  "initial_validation_loss": 0.16581428299766368,
+  "initial_proxy": {
+    "recall@5": 0.9462915601023018,
+    "mrr@10": 0.9366987374660009,
+    "ndcg@10": 0.9304792917940533
+  },
+  "epochs_run": 4,
+  "stopped_early": false,
+  "total_steps": 228,
+  "wall_clock_seconds": 1251.7
+}

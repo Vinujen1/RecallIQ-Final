@@ -1,0 +1,36 @@
+﻿pair_id,recall_id_a,recall_id_b,decision,reviewer,rationale,reviewed_at
+P-22279-22292,22279,22292,DISTINCT,VD,"Different charity distributors and hazards (lead solder vs choking); no matched product identifiers, manufacturer or cross-linked notices.",2026-11-16
+P-23876-55678,23876,55678,DISTINCT,VD,"Different sleepwear brands, firms, styles and recall years (2010 vs 2016); shared flammability hazard alone does not connect the events.",2026-11-16
+P-48081-56555,48081,56555,DISTINCT,VD,"Different cheddar brands, firms, product codes and recall years (2019 vs 2017); no shared Listeria investigation established.",2026-11-16
+P-48676-48702,48676,48702,RELATED_EVENT,VD,"Reviewer confirmed conservative grouping: identical harvest date (2011-10-26), harvest area 15-2/15-02, marine biotoxin hazard, same notice date and consecutive CFIA references. Different shippers/lots; no explicit shared-investigation link.",2026-11-16
+P-48909-58572,48909,58572,DISTINCT,VD,"Different firms, product forms, allergens (milk/wheat vs soy) and recall years; no shared identifiers or investigation.",2026-11-16
+P-49717-49868,49717,49868,RELATED_EVENT,VD,"Reviewer confirmed: official Gorgonzola notices cross-reference one another; the August 5, 2013 notice updates the August 2 warning. Different retail UPCs; same-product origin not proven.",2026-11-16
+P-50609-50874,50609,50874,DISTINCT,VD,"Different outerwear firms, brands and style codes; same drawstring hazard but no linked product or recall investigation.",2026-11-16
+P-50729-61692,50729,61692,DISTINCT,VD,"Different cheese firms, product codes, contaminants (Listeria vs S. aureus) and recall years; no shared event.",2026-11-16
+P-52206-53014,52206,53014,DISTINCT,VD,Different cider producers and hazards (E. coli outbreak vs patulin); no evidence Waupoose belongs to the 2014 E. coli investigation.,2026-11-16
+P-52983-81472,52983,81472,DISTINCT,VD,"Different bicycle manufacturers, fork materials, model identifiers, defects and recall years (2014 vs 2026).",2026-11-16
+P-53140-59711,53140,59711,DISTINCT,VD,"Different meat firms, identifiers and investigation years (2015 vs 2019); Killarney not linked to Ryding-Regency cluster.",2026-11-16
+P-54654-61181,54654,61181,DISTINCT,VD,"Different fish-product importers, brands, UPCs and recall years; no shared undeclared-egg investigation.",2026-11-16
+P-54724-81901,54724,81901,DISTINCT,VD,"Different air-conditioner manufacturers, model numbers and technical fire defects; recalls ten years apart, no link.",2026-11-16
+P-55073-55286,55073,55286,DISTINCT,VD,Different Korean fish-cake importers and UPCs; similar 2016 timing and egg hazard do not establish shared supplier or investigation.,2026-11-16
+P-55073-55491,55073,55491,DISTINCT,VD,"Different Korean fish-cake brands, importers and UPCs; five-day proximity and egg hazard do not establish shared event.",2026-11-16
+P-55073-59252,55073,59252,DISTINCT,VD,"Different Korean fish-cake brands, importers, UPCs and recall years (2016 vs 2019); no shared investigation.",2026-11-16
+P-55073-63461,55073,63461,DISTINCT,VD,"Despite PK Trading importer connection, different fish-cake brands/UPCs and separate 2016 vs 2020 investigations; no shared event documented.",2026-11-16
+P-55286-55491,55286,55491,DISTINCT,VD,Different fish-cake importers and UPCs; close 2016 recall dates and shared egg hazard alone are insufficient.,2026-11-16
+P-55491-59252,55491,59252,DISTINCT,VD,"Different fish-cake brands, importers, UPCs, product codes and recall years; no event link.",2026-11-16
+P-55491-63461,55491,63461,DISTINCT,VD,"Different fish-cake brands, importers, UPCs and recall years; Goraesa updates its own recall rather than Wang Korea's.",2026-11-16
+P-56183-59161,56183,59161,DISTINCT,VD,Different chicken-strip firms and UPCs; 2017 incorrect cooking directions versus 2019 Salmonella outbreak.,2026-11-16
+P-56816-57008,56816,57008,DISTINCT,VD,"Different bicycle-stem manufacturers, models and defects (corrosion vs bolt failure); no shared supplier established.",2026-11-16
+P-58568-62169,58568,62169,DISTINCT,VD,"Different oyster harvesters in different provinces, harvest years and identifiers; shared generic E. coli hazard alone insufficient.",2026-11-16
+P-59711-61142,59711,61142,DISTINCT,VD,Different meat firms and packing periods (2019 vs 2018); Pro-Marque absent from Ryding-Regency related-recall list.,2026-11-16
+P-60936-63700,60936,63700,DISTINCT,VD,"Different plush toys, manufacturers, importers, item codes and recall years; shared choking hazard is not a common event.",2026-11-16
+P-62169-73566,62169,73566,DISTINCT,VD,"Different oyster producers, product identifiers, recall years and hazards (E. coli vs improper harvest authorization).",2026-11-16
+P-62634-63659,62634,63659,DISTINCT,VD,"Different apricot-kernel firms, UPCs and 2021 recall periods; shared natural amygdalin risk without documented common supplier/investigation.",2026-11-16
+P-62655-63659,62655,63659,DISTINCT,VD,"Different apricot-kernel firms, UPCs and recall periods; no documented common supplier or investigation despite shared amygdalin hazard.",2026-11-16
+P-62664-62697,62664,62697,DISTINCT,VD,"Different shrimp importers, lots/codes and recall series; common species, Thailand origin and sulphite hazard do not establish a link.",2026-11-16
+P-63582-63918,63582,63918,RELATED_EVENT,VD,"Reviewer chose conservative grouping: broccoli microgreens, Salmonella, closely numbered CFIA references and near-matching 2021 page-update dates suggest a possible shared event. No common supplier or direct link established; relationship remains unconfirmed.",2026-11-16
+P-72817-74003,72817,74003,DISTINCT,VD,"Unrelated products, distributors and hazards (epoxy packaging vs prohibited baby walker); shared Amazon marketplace is not an event.",2026-11-16
+P-74003-75687,74003,75687,DISTINCT,VD,"Different products, distributors and hazards (baby walker vs nightgown flammability); shared Amazon marketplace is not an event.",2026-11-16
+P-77125-77333,77125,77333,DISTINCT,VD,"Different products, firms and hazards (relight candle fire vs jewellery lead); no common investigation.",2026-11-16
+P-77383-77919,77383,77919,DISTINCT,VD,"Different products, sellers and hazards (radon detector accuracy vs infant-lounger suffocation/fall risk); no shared event.",2026-11-16
+P-81904-82265,81904,82265,DISTINCT,VD,"Different smoke-alarm manufacturers, models and sellers; similar failure/certification issues do not establish shared affected product or event.",2026-11-16

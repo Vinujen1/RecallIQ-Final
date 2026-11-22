@@ -39,6 +39,18 @@ python -m retrieval.smoke     # run realistic queries through bm25 and minilm
 `recall_data/family_review.py` exports the heuristic product families that need manual
 review. Install with `pip install -r requirements.txt && pip install -e .` (from `ml/`).
 
+## `evaluation/` — splits, annotations, metrics (Phase 2B)
+
+| Module | Responsibility |
+| --- | --- |
+| `splits.py` | Grouped, stratified, seeded train/validation/test split + leakage audits |
+| `annotations.py` | Annotation format, JSONL/CSV import/export, validation |
+| `annotate.py` | Interactive terminal tool for writing queries and judging recalls |
+| `metrics.py` | Recall@5, MRR@10, graded nDCG@10 |
+| `evaluate.py` | BM25 vs MiniLM on reviewed queries (test split guarded) |
+
+Method: `docs/EVALUATION.md`.
+
 ## Later phases
 Model training/evaluation (with fixed seeds, a documented baseline, and leak-free
 splits) will live alongside this package. Trained artifacts go to `ml/artifacts/`

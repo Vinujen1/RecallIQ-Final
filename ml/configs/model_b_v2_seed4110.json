@@ -1,0 +1,29 @@
+{
+  "experiment_label": "Model B v2 (seed 4110, same-text masking): MiniLM + MultipleNegativesRanking loss, in-batch negatives only",
+  "seed": 4110,
+  "epochs": 4,
+  "batch_size": 32,
+  "learning_rate": 2e-05,
+  "weight_decay": 0.01,
+  "warmup_ratio": 0.1,
+  "max_grad_norm": 1.0,
+  "scale": 20.0,
+  "max_seq_length": 128,
+  "hard_negatives_per_pair": 0,
+  "validation_hard_negatives": 3,
+  "bm25_candidates": 10,
+  "semantic_candidates": 10,
+  "false_negative_jaccard": 0.5,
+  "pseudo_query_views": [
+    "title_core",
+    "generic_issue",
+    "product_issue",
+    "consumer_question",
+    "brand_product"
+  ],
+  "include_human_train_queries": true,
+  "use_reviewed_distinct_negatives": true,
+  "selection_metric": "proxy_mrr@10",
+  "early_stopping_patience": 2,
+  "mask_duplicate_query_texts": true
+}
