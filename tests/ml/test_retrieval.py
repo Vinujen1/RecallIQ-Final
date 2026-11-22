@@ -307,3 +307,14 @@ def test_real_minilm_query_embedding_and_self_retrieval_sanity():
         assert hits[0].recall_id == record.recall_id
     metadata = json.loads((DEFAULT_OUT / "metadata.json").read_text("utf-8"))
     assert metadata["count"] == len(engine.corpus)
+
+
+def test_restrict_to_masks_before_ranking_and_keeps_order():
+    engine = SearchEngine(CORPUS)
+    full = [h.recall_id for h in engine.search("recall", model="bm25", top_k=50)]
+    allowed = set(full[1:])
+    hits = engine.search("recall", model="bm25", top_k=50, restrict_to=allowed)
+    assert [h.recall_id for h in hits] == full[1:]
+    assert [h.rank for h in hits] == list(range(1, len(hits) + 1))
+    assert engine.search("recall", model="bm25", restrict_to=set()) == []
+    assert engine.search("recall", model="bm25", top_k=50, restrict_to=None) ==         engine.search("recall", model="bm25", top_k=50)

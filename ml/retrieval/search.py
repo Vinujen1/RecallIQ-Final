@@ -7,6 +7,7 @@ embedding index built by the same network; BM25 scores are never mixed with cosi
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Literal
 
@@ -123,19 +124,28 @@ class SearchEngine:
                 error or f"{name} is not configured")
         return out
 
-    def search(self, query: str, model: str = "bm25", top_k: int = 10) -> list[SearchHit]:
+    def search(self, query: str, model: str = "bm25", top_k: int = 10,
+               restrict_to: Collection[int] | None = None) -> list[SearchHit]:
+        """`restrict_to`: optional recall ids to search within (e.g. a category filter).
+        Excluded records are masked before ranking, so top_k is filled from allowed ones."""
         query = validate_query(query)
         if model not in SUPPORTED_MODELS:
             raise ValueError(f"Unknown model {model!r}; expected one of {SUPPORTED_MODELS}")
         if not 1 <= top_k <= MAX_TOP_K:
             raise ValueError(f"top_k must be between 1 and {MAX_TOP_K}")
 
+        scores = self.bm25.scores(query) if model == "bm25" else self._cosine_scores(query, model)
+        allowed = None
+        if restrict_to is not None:
+            wanted = set(restrict_to)
+            allowed = np.fromiter((rid in wanted for rid in self.recall_ids), bool,
+                                  count=len(self.recall_ids))
+            scores = np.where(allowed, scores, -np.inf)
+        candidates = rank(scores, self.recall_ids, top_k)
+        if allowed is not None:
+            candidates = [i for i in candidates if allowed[i]]
         if model == "bm25":
-            scores = self.bm25.scores(query)
-            candidates = [i for i in rank(scores, self.recall_ids, top_k) if scores[i] > 0.0]
-        else:
-            scores = self._cosine_scores(query, model)
-            candidates = rank(scores, self.recall_ids, top_k)
+            candidates = [i for i in candidates if scores[i] > 0.0]
 
         return [
             SearchHit(

@@ -62,6 +62,10 @@ class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500, description="Free-text consumer query")
     model: SearchModel = Field(default="bm25", description="Retrieval model")
     top_k: int = Field(default=10, ge=1, le=50)
+    domain: Domain | None = Field(default=None, description="Only search this domain")
+    category: str | None = Field(
+        default=None, max_length=200,
+        description="Only search recalls listing this category (see GET /categories)")
 
     @field_validator("query")
     @classmethod
@@ -70,6 +74,14 @@ class SearchRequest(BaseModel):
         if not cleaned:
             raise ValueError("query must contain non-whitespace characters")
         return cleaned
+
+    @field_validator("category")
+    @classmethod
+    def category_blank_is_none(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = " ".join(value.split())
+        return cleaned or None
 
 
 class SearchHit(BaseModel):
@@ -80,6 +92,10 @@ class SearchHit(BaseModel):
     issue: str | None
     url: str = Field(description="Official recalls-rappels.canada.ca page")
     score: float = Field(description="Interpret using the response's score_type")
+    domain: Domain
+    last_updated: date | None = Field(
+        description="Date the official notice was last updated (not necessarily the recall date)")
+    archived: bool = Field(description="The official notice is archived")
 
 
 class IdentifierTypeCheck(BaseModel):
@@ -103,6 +119,8 @@ class SearchResponse(BaseModel):
     score_type: ScoreType
     score_description: str
     top_k: int
+    domain: Domain | None = Field(default=None, description="Domain filter applied, if any")
+    category: str | None = Field(default=None, description="Category filter applied, if any")
     results: list[SearchHit]
     identifiers_in_query: bool = Field(
         default=False, description="Whether the query names a UPC / model / lot / best-before")

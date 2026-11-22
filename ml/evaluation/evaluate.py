@@ -7,9 +7,14 @@ queries and the same 1,000-record index.
         --checkpoint model_c=ml/artifacts/models/model-c-v1/checkpoints/best
     python -m evaluation.evaluate --split test --confirm-final-test     # final report only
 
-Only queries with reviewer_status == "reviewed" in the chosen split are used. Retrieval
-searches the full 1,000-record index for every model. No metrics are produced when no
-reviewed queries exist — nothing is estimated or filled in.
+    python -m evaluation.evaluate --split validation --include-single-annotator
+
+By default only queries with reviewer_status == "reviewed" (checked by a second person) in
+the chosen split are used. --include-single-annotator also uses "single_annotator" queries
+(finalized by their author alone); the report then records how many queries of each kind
+were used, gives per-status metrics, and carries a limitation warning. Retrieval searches
+the full 1,000-record index for every model. No metrics are produced when no eligible
+queries exist — nothing is estimated or filled in.
 """
 
 from __future__ import annotations
@@ -28,7 +33,14 @@ from evaluation import (
     DEFAULT_REPORT_DIR,
     SPLITS,
 )
-from evaluation.annotations import corpus_context, read_any, validate
+from evaluation.annotations import (
+    INDEPENDENT,
+    SINGLE_ANNOTATOR,
+    STATUSES,
+    corpus_context,
+    read_any,
+    validate,
+)
 from evaluation.diagnostics import error_rows, paired_bootstrap, false_match_rate, identifier_precision, rank_changes
 from evaluation.metrics import METRICS, evaluate_run
 from evaluation.rankers import Ranker, build_rankers, parse_checkpoint
@@ -63,6 +75,7 @@ def _log_test_run(report: dict, log: Path | None = None) -> int:
     previous = len(log.read_text("utf-8").splitlines()) if log.is_file() else 0
     log.parent.mkdir(parents=True, exist_ok=True)
     entry = {"provenance": report.get("provenance"), "num_queries": report["num_queries"],
+             "annotation_composition": report.get("annotation_composition"),
              "means": {m: r.get("mean") for m, r in report["results"].items()}}
     with log.open("a", encoding="utf-8") as handle:
         print(json.dumps(entry), file=handle)
@@ -79,6 +92,7 @@ def run_evaluation(
     confirm_final_test: bool = False,
     assignment_fingerprint: str | None = None,
     extra_rankers: dict[str, Ranker] | None = None,
+    include_single_annotator: bool = False,
 ) -> dict:
     if split not in SPLITS:
         raise EvaluationError(f"split must be one of {SPLITS}")
@@ -96,12 +110,38 @@ def run_evaluation(
             f"{len(report.errors)} annotation errors; run `python -m evaluation.annotations "
             f"validate` first. First error: {report.errors[0]}"
         )
-    queries = report.reviewed(split)
+    queries = report.evaluable(split, include_single_annotator)
+    in_split = [a for a in report.valid if a.split == split]
+    status_counts = {s: sum(a.reviewer_status == s for a in in_split) for s in STATUSES}
     if not queries:
-        raise EvaluationError(
-            f"No reviewed queries in the {split} split: no metrics computed. Write queries "
-            "with `python -m evaluation.annotate` and have a second person review them."
-        )
+        hint = ("Write queries with `python -m evaluation.annotate` and have a second person "
+                "review them")
+        if status_counts[SINGLE_ANNOTATOR] and not include_single_annotator:
+            hint = (f"{status_counts[SINGLE_ANNOTATOR]} single_annotator queries exist; add "
+                    "--include-single-annotator to evaluate them (reported as such)")
+        elif not include_single_annotator:
+            hint += (", or finalize your own drafts with `python -m evaluation.annotations "
+                     "finalize` and use --include-single-annotator")
+        raise EvaluationError(f"No eligible queries in the {split} split: no metrics "
+                              f"computed. {hint}.")
+    by_status = {s: [a.query_id for a in queries if a.reviewer_status == s]
+                 for s in (INDEPENDENT, SINGLE_ANNOTATOR)}
+    n_independent, n_single = len(by_status[INDEPENDENT]), len(by_status[SINGLE_ANNOTATOR])
+    composition = {
+        "review_mode": ("independent" if not n_single else
+                        "single_annotator" if not n_independent else "mixed"),
+        "independently_reviewed_queries": n_independent,
+        "single_annotator_queries": n_single,
+        "total_queries_evaluated": len(queries),
+        "single_annotator_included": include_single_annotator,
+        "included_statuses": [INDEPENDENT] + ([SINGLE_ANNOTATOR] if include_single_annotator else []),
+        "excluded_in_split": {s: n for s, n in status_counts.items()
+                              if n and s not in {a.reviewer_status for a in queries}},
+        "annotators": sorted({a.annotator for a in queries if a.annotator}),
+        "reviewers": sorted({a.reviewer for a in queries
+                             if a.reviewer_status == INDEPENDENT and a.reviewer}),
+        "queries_by_status": {s: ids for s, ids in by_status.items() if ids},
+    }
 
     qrels = {a.query_id: a.qrels for a in queries}
     # Breakdown: judgments restricted to the query's own split (always non-empty because
@@ -126,6 +166,12 @@ def run_evaluation(
             continue
         scored = evaluate_run(run, qrels)
         scored["mean_in_split_judgments_only"] = evaluate_run(run, qrels_in_split)["mean"]
+        # Never only a blended number: metrics per review status, side by side.
+        scored["mean_by_review_status"] = {
+            status: {"num_queries": len(ids),
+                     "mean": evaluate_run({q: run[q] for q in ids}, {q: qrels[q] for q in ids})["mean"]}
+            for status, ids in by_status.items() if ids
+        }
         scored["false_match_rate@1"] = false_match_rate(run, qrels)
         scored["identifier_precision@5"] = identifier_precision(run, texts, qrels, evidence)
         scored["rankings"] = run
@@ -140,14 +186,22 @@ def run_evaluation(
                 "bootstrap_mrr@10": paired_bootstrap(results[a]["per_query"], results[b]["per_query"])}
 
     warnings = list(report.warnings)
+    if n_single:
+        warnings.append(
+            f"LIMITATION: {n_single} of {len(queries)} queries are single_annotator — the "
+            "query and its relevance judgments come from one person with no independent "
+            "review. Treat these metrics as preliminary; they are not independently validated "
+            "and may reflect that person's interpretation of relevance."
+        )
     if len(queries) < SMALL_SAMPLE:
         warnings.append(
-            f"Only {len(queries)} reviewed queries: differences between models may be noise."
+            f"Only {len(queries)} evaluated queries: differences between models may be noise."
         )
     return {
         "split": split,
         "final_test": split == "test",
         "num_queries": len(queries),
+        "annotation_composition": composition,
         "num_relevant_judgments": sum(len(a.relevant) for a in queries),
         "relevant_judgments_outside_query_split": outside,
         "corpus_size": len(engine.corpus),
@@ -167,6 +221,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="fine-tuned encoder checkpoint to compare (repeatable), e.g. "
                              "model_b=ml/artifacts/models/model-b-v1/checkpoints/best")
     parser.add_argument("--confirm-final-test", action="store_true")
+    parser.add_argument("--include-single-annotator", action="store_true",
+                        help="also evaluate single_annotator queries (no second reviewer); "
+                             "the report records the composition and a limitation warning")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--embeddings", type=Path, default=DEFAULT_EMBEDDINGS)
@@ -180,7 +237,8 @@ def main(argv: list[str] | None = None) -> int:
         report = run_evaluation(args.annotations, args.split, args.models, engine,
                                 split_of, titles, args.confirm_final_test,
                                 manifest.get("assignment_fingerprint"),
-                                extra_rankers=build_rankers(engine, [], checkpoints))
+                                extra_rankers=build_rankers(engine, [], checkpoints),
+                                include_single_annotator=args.include_single_annotator)
     except (EvaluationError, FileNotFoundError, RuntimeError, ValueError) as error:
         print(f"Evaluation not run: {error}")
         return 2
@@ -209,8 +267,12 @@ def main(argv: list[str] | None = None) -> int:
         if previous:
             print(f"WARNING: the test split has now been evaluated {previous + 1} times "
                   f"(see {TEST_RUN_LOG}). Repeated test runs invite selection on test.")
+    comp = report["annotation_composition"]
     print(f"split={report['split']}  queries={report['num_queries']}  "
           f"judgments={report['num_relevant_judgments']}  corpus={report['corpus_size']}")
+    print(f"review mode={comp['review_mode']}  independently reviewed="
+          f"{comp['independently_reviewed_queries']}  single-annotator="
+          f"{comp['single_annotator_queries']}  total={comp['total_queries_evaluated']}")
     print(f"{'model':10} " + " ".join(f"{m:>9}" for m in report["metrics"]) + "     FMR@1   IVP@5")
     for model, result in report["results"].items():
         if "error" in result:

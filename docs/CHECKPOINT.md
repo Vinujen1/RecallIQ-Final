@@ -78,7 +78,8 @@ UNKNOWN, not an over-claimed MATCH). First MiniLM request loads the model (~15�
 
 ## Cannot be claimed yet
 - Any retrieval quality on consumer-written queries (0 reviewed human queries).
-- That hard negatives help or hurt (single seed, saturated proxy).
+- That hard negatives meaningfully help: across 3 seeds C beat B on proxy MRR@10 every
+  time, but only by +0.0023 on average (sd 0.0013) on a saturated proxy (`experiments/reports/seeds.md`).
 - Identifier-verification precision; RAG explanations (not started).
 
 ## Remaining work — priority order (owners to be agreed by the team)
@@ -87,10 +88,10 @@ UNKNOWN, not an over-claimed MATCH). First MiniLM request loads the model (~15�
 | 1 | **Write + cross-review ≥ 30 validation and ≥ 30 test queries** (`docs/QUERY_WRITING_GUIDE.md`) | all 3 members; a different member reviews each query | queries land in a split via their anchor (~20 % each val/test) → free writing needs ~150 queries for 30/30; see decision below |
 | 2 | `evaluation.evaluate --split validation` with the B and C checkpoints; move checkpoint selection to human validation queries | item 1 | ~15 min CPU |
 | 3 | Re-pool: reviewers judge Model B/C top-10 for every query (pooling bias) | item 1 | 1–2 h people |
-| 4 | Seeds 4110–4112 for B and C, v2 (same-text masking) — **running/see `experiments/reports/seeds.md`** | — | ~2 h CPU |
+| 4 | ~~Seeds 4110–4112 for B and C, v2~~ — **done** (`experiments/reports/seeds.md`) | — | — |
 | 5 | Fetch official notice pages (UPC / lot / best-before) as verifier evidence — proposal pre-processing step not done yet | network, polite rate limit | ~2 h |
 | 6 | RAG: foundation done (`POST /explain`, template + grounding guard). Remaining: an LLM adapter (optional, env-configured) whose output must pass `check_grounded`; evaluate explanations by hand on ~20 queries | items 2, 5 | 0.5–1 day |
-| 7 | Demo: API done (B/C + verifier + `/explain`). Remaining: Next.js page calling `/search` + `/explain` | — | 0.5 day |
+| 7 | ~~Demo website~~ — **built** (Phase 5: `/`, `/search`, `/recalls/[id]`, `/model-lab`, `/how-it-works`; see `docs/PROGRESS.md`) | — | — |
 | 8 | Final test evaluation **once**, after model selection and judgments are complete | items 1–4 | 10 min |
 | 9 | CONTRIBUTIONS.md + commits from every member's own account | everyone | ongoing |
 

@@ -22,9 +22,9 @@ Do not start until the split manifest is frozen (`python -m evaluation.split_rev
 | `relevant` | yes | **All** relevant recalls among the 1,000 (any split): `{"recall_id": <official NID>, "grade": 1-3}`; `grade` optional (default 1) |
 | `anchor_recall_id` | no | The recall the consumer most likely means; default = highest grade, first listed |
 | `split_fingerprint` | set by tools | Split assignment the query was labelled against |
-| `reviewer_status` | yes | `draft` → `reviewed` (or `rejected`); only `reviewed` queries are evaluated |
+| `reviewer_status` | yes | `draft` → `reviewed` (or `rejected`), or `draft` → `single_annotator` when working alone; by default only `reviewed` queries are evaluated |
 | `annotator` | yes | Initials of the person who wrote the query |
-| `reviewer` | for `reviewed` | Initials of a **different** person who checked the labels |
+| `reviewer` | for `reviewed` | Initials of a **different** person who checked the labels; must stay **empty** for `single_annotator` |
 | `notes`, `created_at` | no | Free text; ISO timestamp |
 
 Grades: **1** relevant · **2** highly relevant · **3** exactly the recall the user means.
@@ -48,3 +48,17 @@ python -m evaluation.annotations export --out review.csv
 python -m evaluation.annotations import review.csv --out data/annotations/queries.jsonl
 python -m evaluation.annotations validate
 ```
+
+## Working alone (single-annotator)
+If no second person is available, re-check your own drafts and finalize them:
+
+```bash
+python -m evaluation.annotations finalize data/annotations/vd.jsonl --annotator VD
+python -m evaluation.annotations finalize data/annotations/vd.jsonl --annotator VD --ids VD-0001 VD-0002
+```
+
+This changes only **your own `draft`** queries to `single_annotator` and never fills in a
+reviewer. These queries are evaluated only with `evaluate --include-single-annotator`, and
+the report shows them separately from independently reviewed queries. A teammate can still
+review them later: export, set `reviewed` + their initials, and re-import. See
+[`docs/EVALUATION.md` § 3a](../../docs/EVALUATION.md).

@@ -1,0 +1,357 @@
+{
+  "generatedFrom": "experiments/runs (proxy_validation.json, model-*-v1)",
+  "label": "PROXY - generated validation queries, NOT human relevance judgments",
+  "queries": 391,
+  "corpusSize": 1000,
+  "evaluatedAt": "2026-11-16T19:40:35+00:00",
+  "splitFrozen": true,
+  "splitFingerprint": "5612e28dc9e2",
+  "corpusFingerprint": "7d75d98bb50c",
+  "systems": [
+    {
+      "key": "bm25",
+      "apiModel": "bm25",
+      "recall5": 0.9680306905370843,
+      "mrr10": 0.9702472293265132,
+      "ndcg10": 0.9626962186158473,
+      "fmr1": {
+        "value": 0.04859335038363171,
+        "failures": 19,
+        "queries": 391
+      },
+      "byView": {
+        "brand_product": {
+          "queries": 82,
+          "mrr10": 1,
+          "recall5": 0.9878048780487805
+        },
+        "consumer_question": {
+          "queries": 199,
+          "mrr10": 0.9608040201005025,
+          "recall5": 0.9698492462311558
+        },
+        "generic_issue": {
+          "queries": 82,
+          "mrr10": 0.9532520325203252,
+          "recall5": 0.9329268292682927
+        },
+        "product_issue": {
+          "queries": 28,
+          "mrr10": 1,
+          "recall5": 1
+        }
+      }
+    },
+    {
+      "key": "minilm",
+      "apiModel": "minilm",
+      "recall5": 0.9462915601023018,
+      "mrr10": 0.9366987374660009,
+      "ndcg10": 0.9304792917940533,
+      "fmr1": {
+        "value": 0.08951406649616368,
+        "failures": 35,
+        "queries": 391
+      },
+      "byView": {
+        "brand_product": {
+          "queries": 82,
+          "mrr10": 0.9847560975609756,
+          "recall5": 0.975609756097561
+        },
+        "consumer_question": {
+          "queries": 199,
+          "mrr10": 0.9311198851399857,
+          "recall5": 0.9447236180904522
+        },
+        "generic_issue": {
+          "queries": 82,
+          "mrr10": 0.8805652342237708,
+          "recall5": 0.9024390243902439
+        },
+        "product_issue": {
+          "queries": 28,
+          "mrr10": 1,
+          "recall5": 1
+        }
+      }
+    },
+    {
+      "key": "model_b",
+      "apiModel": "minilm_finetuned",
+      "recall5": 0.9705882352941176,
+      "mrr10": 0.9742753623188406,
+      "ndcg10": 0.9639737640693492,
+      "fmr1": {
+        "value": 0.04092071611253197,
+        "failures": 16,
+        "queries": 391
+      },
+      "byView": {
+        "brand_product": {
+          "queries": 82,
+          "mrr10": 0.9939024390243902,
+          "recall5": 0.9695121951219512
+        },
+        "consumer_question": {
+          "queries": 199,
+          "mrr10": 0.9712730318257956,
+          "recall5": 0.9773869346733668
+        },
+        "generic_issue": {
+          "queries": 82,
+          "mrr10": 0.953150406504065,
+          "recall5": 0.9451219512195121
+        },
+        "product_issue": {
+          "queries": 28,
+          "mrr10": 1,
+          "recall5": 1
+        }
+      }
+    },
+    {
+      "key": "model_c",
+      "apiModel": "minilm_hard_negative",
+      "recall5": 0.9718670076726342,
+      "mrr10": 0.9768755328218244,
+      "ndcg10": 0.9669775080799397,
+      "fmr1": {
+        "value": 0.03580562659846547,
+        "failures": 14,
+        "queries": 391
+      },
+      "byView": {
+        "brand_product": {
+          "queries": 82,
+          "mrr10": 1,
+          "recall5": 0.975609756097561
+        },
+        "consumer_question": {
+          "queries": 199,
+          "mrr10": 0.9765494137353434,
+          "recall5": 0.9798994974874372
+        },
+        "generic_issue": {
+          "queries": 82,
+          "mrr10": 0.9466463414634146,
+          "recall5": 0.9390243902439024
+        },
+        "product_issue": {
+          "queries": 28,
+          "mrr10": 1,
+          "recall5": 1
+        }
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "name": "model_b_vs_minilm",
+      "treatment": "model_b",
+      "control": "minilm",
+      "meanDifference": 0.03757662485283969,
+      "ci95": [
+        0.02153209109730849,
+        0.055636747452604225
+      ],
+      "excludesZero": true,
+      "better": 29,
+      "worse": 3,
+      "ties": 359,
+      "resamples": 10000,
+      "seed": 4110
+    },
+    {
+      "name": "model_c_vs_model_b",
+      "treatment": "model_c",
+      "control": "model_b",
+      "meanDifference": 0.002600170502983802,
+      "ci95": [
+        -0.0033248081841432226,
+        0.009036658141517476
+      ],
+      "excludesZero": false,
+      "better": 6,
+      "worse": 5,
+      "ties": 380,
+      "resamples": 10000,
+      "seed": 4110
+    },
+    {
+      "name": "model_b_vs_bm25",
+      "treatment": "model_b",
+      "control": "bm25",
+      "meanDifference": 0.0040281329923273655,
+      "ci95": [
+        -0.007928388746803069,
+        0.01577152600170503
+      ],
+      "excludesZero": false,
+      "better": 15,
+      "worse": 10,
+      "ties": 366,
+      "resamples": 10000,
+      "seed": 4110
+    },
+    {
+      "name": "model_c_vs_bm25",
+      "treatment": "model_c",
+      "control": "bm25",
+      "meanDifference": 0.006628303495311167,
+      "ci95": [
+        -0.004795396419437341,
+        0.018052003410059678
+      ],
+      "excludesZero": false,
+      "better": 14,
+      "worse": 8,
+      "ties": 369,
+      "resamples": 10000,
+      "seed": 4110
+    }
+  ],
+  "training": {
+    "model-b-v1": {
+      "label": "Model B: MiniLM + MultipleNegativesRanking loss, in-batch negatives only",
+      "bestEpoch": 3,
+      "epochsRun": 4,
+      "stoppedEarly": false,
+      "wallClockSeconds": 880.7,
+      "epochs": [
+        {
+          "epoch": 0,
+          "trainLoss": null,
+          "validationLoss": 0.16581428299766368,
+          "proxyMrr10": 0.9366987374660009
+        },
+        {
+          "epoch": 1,
+          "trainLoss": 0.021598899417879517,
+          "validationLoss": 0.07619043528204422,
+          "proxyMrr10": 0.9698422847399829
+        },
+        {
+          "epoch": 2,
+          "trainLoss": 0.0046247656207190615,
+          "validationLoss": 0.06271883239734032,
+          "proxyMrr10": 0.9736572890025575
+        },
+        {
+          "epoch": 3,
+          "trainLoss": 0.004455912632054829,
+          "validationLoss": 0.059646954273092,
+          "proxyMrr10": 0.9742753623188406
+        },
+        {
+          "epoch": 4,
+          "trainLoss": 0.003248391698115595,
+          "validationLoss": 0.0581801188183072,
+          "proxyMrr10": 0.9742753623188406
+        }
+      ]
+    },
+    "model-c-v1": {
+      "label": "Model C: Model B + mined and human-verified hard negatives (1 per query per step, sampled from 3)",
+      "bestEpoch": 4,
+      "epochsRun": 4,
+      "stoppedEarly": false,
+      "wallClockSeconds": 1251.7,
+      "epochs": [
+        {
+          "epoch": 0,
+          "trainLoss": null,
+          "validationLoss": 0.16581428299766368,
+          "proxyMrr10": 0.9366987374660009
+        },
+        {
+          "epoch": 1,
+          "trainLoss": 0.05184803911272371,
+          "validationLoss": 0.07201523779817616,
+          "proxyMrr10": 0.9681869849389031
+        },
+        {
+          "epoch": 2,
+          "trainLoss": 0.013714003721313355,
+          "validationLoss": 0.05517844623975569,
+          "proxyMrr10": 0.9764949458044088
+        },
+        {
+          "epoch": 3,
+          "trainLoss": 0.01079202044894102,
+          "validationLoss": 0.04992461952099712,
+          "proxyMrr10": 0.974850809889173
+        },
+        {
+          "epoch": 4,
+          "trainLoss": 0.007956763287279102,
+          "validationLoss": 0.04986003624875268,
+          "proxyMrr10": 0.9768755328218244
+        }
+      ]
+    }
+  },
+  "seeds": {
+    "seeds": [
+      4110,
+      4111,
+      4112
+    ],
+    "runs": [
+      {
+        "model": "B",
+        "seed": 4110,
+        "bestEpoch": 3,
+        "epochsRun": 4,
+        "recall5": 0.9705882352941176,
+        "mrr10": 0.9742753623188406,
+        "ndcg10": 0.9639737640693492
+      },
+      {
+        "model": "B",
+        "seed": 4111,
+        "bestEpoch": 1,
+        "epochsRun": 3,
+        "recall5": 0.9680306905370843,
+        "mrr10": 0.9716782365119961,
+        "ndcg10": 0.9609309964492688
+      },
+      {
+        "model": "B",
+        "seed": 4112,
+        "bestEpoch": 2,
+        "epochsRun": 4,
+        "recall5": 0.9744245524296675,
+        "mrr10": 0.9734867860187554,
+        "ndcg10": 0.9644411662040453
+      },
+      {
+        "model": "C",
+        "seed": 4110,
+        "bestEpoch": 2,
+        "epochsRun": 4,
+        "recall5": 0.9680306905370843,
+        "mrr10": 0.9764949458044088,
+        "ndcg10": 0.9655801255719251
+      },
+      {
+        "model": "C",
+        "seed": 4111,
+        "bestEpoch": 4,
+        "epochsRun": 4,
+        "recall5": 0.9744245524296675,
+        "mrr10": 0.9752770673486786,
+        "ndcg10": 0.9658494761451331
+      },
+      {
+        "model": "C",
+        "seed": 4112,
+        "bestEpoch": 2,
+        "epochsRun": 4,
+        "recall5": 0.9769820971867008,
+        "mrr10": 0.9745524296675192,
+        "ndcg10": 0.9666913434874036
+      }
+    ]
+  }
+}

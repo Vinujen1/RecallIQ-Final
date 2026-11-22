@@ -256,3 +256,6 @@ ml/runs/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Browser-test artifacts (screenshots, snapshots, console logs)
+.playwright-mcp/

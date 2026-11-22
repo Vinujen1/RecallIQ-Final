@@ -3,17 +3,26 @@
     python -m evaluation.annotations validate data/annotations/queries.jsonl
     python -m evaluation.annotations import reviewed.csv --out data/annotations/queries.jsonl
     python -m evaluation.annotations export data/annotations/queries.jsonl --out review.csv
+    python -m evaluation.annotations finalize data/annotations/vd.jsonl --annotator VD
 
 JSONL — one query per line:
   {"query_id": "AB-0001", "query": "<consumer-written text>", "split": "validation",
    "relevant": [{"recall_id": 50609, "grade": 2}, {"recall_id": 50874}],
-   "reviewer_status": "draft|reviewed|rejected", "annotator": "AB", "reviewer": "CD",
+   "reviewer_status": "draft|reviewed|single_annotator|rejected", "annotator": "AB", "reviewer": "CD",
    "notes": "", "created_at": "2026-11-15T12:00:00+00:00", "anchor_recall_id": 50609}
 CSV — one row per (query, relevant recall) with columns CSV_COLUMNS.
 Grades: 1 = relevant (default), 2 = highly relevant, 3 = exact recall the user means.
 Relevant recalls may come from ANY split (judgments cover the full 1,000-record index);
 the query's `split` must equal the split of its anchor recall (`anchor_recall_id`, or by
 default the highest-grade recall listed first). (Ids above are placeholders.)
+
+Review status:
+  draft             written, not yet checked; never evaluated
+  reviewed          checked by a DIFFERENT person (`reviewer` != `annotator`): independent
+  single_annotator  finalized by its own author with no second person; `reviewer` stays
+                    empty. Evaluated only with `evaluate --include-single-annotator` and
+                    always reported separately; never counted as independently reviewed
+  rejected          discarded
 """
 
 from __future__ import annotations
@@ -30,7 +39,9 @@ from pathlib import Path
 from evaluation import DEFAULT_ANNOTATIONS, DEFAULT_DB, DEFAULT_MANIFEST, SPLITS
 
 GRADES = (1, 2, 3)
-STATUSES = ("draft", "reviewed", "rejected")
+INDEPENDENT = "reviewed"
+SINGLE_ANNOTATOR = "single_annotator"
+STATUSES = ("draft", INDEPENDENT, SINGLE_ANNOTATOR, "rejected")
 MAX_QUERY_LENGTH = 500
 CSV_COLUMNS = (
     "query_id", "query", "split", "recall_id", "grade", "reviewer_status", "annotator",
@@ -81,8 +92,15 @@ class ValidationReport:
         return not self.errors
 
     def reviewed(self, split: str | None = None) -> list[Annotation]:
+        """Independently reviewed queries only (a second person checked the labels)."""
         return [a for a in self.valid
-                if a.reviewer_status == "reviewed" and (split is None or a.split == split)]
+                if a.reviewer_status == INDEPENDENT and (split is None or a.split == split)]
+
+    def evaluable(self, split: str, include_single_annotator: bool = False) -> list[Annotation]:
+        """Queries usable for evaluation: independently reviewed, plus single-annotator
+        queries only when explicitly requested."""
+        allowed = {INDEPENDENT, SINGLE_ANNOTATOR} if include_single_annotator else {INDEPENDENT}
+        return [a for a in self.valid if a.reviewer_status in allowed and a.split == split]
 
 
 # --- reading ---------------------------------------------------------------------------
@@ -205,6 +223,11 @@ def validate(
             errors.append(f"{where}: reviewed queries need a reviewer")
         elif status == "reviewed" and _initials(reviewer) == _initials(annotator):
             errors.append(f"{where}: reviewer must be a different person than the annotator")
+        if status == SINGLE_ANNOTATOR and not annotator:
+            errors.append(f"{where}: single_annotator queries need the annotator's initials")
+        elif status == SINGLE_ANNOTATOR and reviewer:
+            errors.append(f"{where}: single_annotator queries must leave reviewer empty (a "
+                          "self-check is not a review; a different person's check is `reviewed`)")
         stamp = str(raw.get("split_fingerprint") or "").strip()
         if assignment_fingerprint and stamp and stamp != assignment_fingerprint:
             errors.append(f"{where}: labelled against a different split assignment "
@@ -329,6 +352,56 @@ def write_csv(annotations: list[Annotation], path: Path) -> None:
                 })
 
 
+def finalize_single_annotator(
+    raws: list[dict], annotator: str, query_ids: set[str] | None = None
+) -> list[str]:
+    """Mark the annotator's OWN drafts as single_annotator, in place; return their ids.
+
+    Never sets a reviewer. Raises ValueError for requested ids that are unknown, belong to
+    someone else, or are not drafts, so nothing is changed silently.
+    """
+    if not annotator.strip():
+        raise ValueError("annotator initials are required")
+    me = _initials(annotator)
+    if query_ids is not None:
+        by_id = {str(r.get("query_id") or "").strip(): r for r in raws}
+        problems = []
+        for qid in sorted(query_ids):
+            raw = by_id.get(qid)
+            if raw is None:
+                problems.append(f"{qid}: not in the file")
+            elif _initials(str(raw.get("annotator") or "")) != me:
+                problems.append(f"{qid}: written by {raw.get('annotator') or 'nobody'}, not {annotator}")
+            elif str(raw.get("reviewer_status") or "draft").strip() != "draft":
+                problems.append(f"{qid}: status is {raw.get('reviewer_status')}, not draft")
+        if problems:
+            raise ValueError("cannot finalize: " + "; ".join(problems))
+    changed = []
+    for raw in raws:
+        qid = str(raw.get("query_id") or "").strip()
+        if query_ids is not None and qid not in query_ids:
+            continue
+        if (_initials(str(raw.get("annotator") or "")) == me
+                and str(raw.get("reviewer_status") or "draft").strip() == "draft"):
+            raw["reviewer_status"] = SINGLE_ANNOTATOR
+            raw["reviewer"] = ""
+            changed.append(qid)
+    return changed
+
+
+def write_raw_jsonl(raws: list[dict], path: Path) -> None:
+    """Atomically rewrite raw records, keeping every original field as it was."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        with tmp.open("w", encoding="utf-8", newline="\n") as handle:
+            for raw in raws:
+                handle.write(json.dumps(raw, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 # --- corpus context --------------------------------------------------------------------
 
 def corpus_context(
@@ -380,7 +453,13 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("export", help="export JSONL to long-format CSV for spreadsheet review")
     e.add_argument("path", type=Path, nargs="?", default=DEFAULT_ANNOTATIONS)
     e.add_argument("--out", type=Path, required=True)
-    for p in (v, i, e):
+    f = sub.add_parser("finalize", help="mark YOUR OWN drafts as single_annotator (no second "
+                                        "reviewer; never counted as independently reviewed)")
+    f.add_argument("path", type=Path)
+    f.add_argument("--annotator", required=True, help="your initials; only your drafts change")
+    f.add_argument("--ids", nargs="+", default=None, metavar="QUERY_ID",
+                   help="finalize only these drafts (default: all of your drafts)")
+    for p in (v, i, e, f):
         p.add_argument("--db", type=Path, default=DEFAULT_DB)
         p.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     args = parser.parse_args(argv)
@@ -398,7 +477,28 @@ def main(argv: list[str] | None = None) -> int:
     if not report.ok:
         print("\nNothing written: fix the errors above and re-run.")
         return 1
-    if args.command == "import":
+    if args.command == "finalize":
+        if args.path.suffix.lower() != ".jsonl":
+            print("finalize works on .jsonl files only")
+            return 2
+        try:
+            changed = finalize_single_annotator(raws, args.annotator,
+                                                set(args.ids) if args.ids else None)
+        except ValueError as error:
+            print(f"\nNothing written: {error}")
+            return 1
+        if not changed:
+            print(f"\nNo draft queries by {args.annotator} to finalize.")
+            return 0
+        recheck = validate(raws, split_of, titles, manifest.get("assignment_fingerprint"))
+        if not recheck.ok:
+            print(f"\nNothing written: {recheck.errors[0]}")
+            return 1
+        write_raw_jsonl(raws, args.path)
+        print(f"\nFinalized {len(changed)} queries as single_annotator in {args.path.resolve()}: "
+              f"{', '.join(changed)}\nThese are NOT independently reviewed; evaluate them with "
+              "`python -m evaluation.evaluate --include-single-annotator`.")
+    elif args.command == "import":
         write_jsonl(report.valid, args.out)
         print(f"\nWrote {len(report.valid)} queries to {args.out.resolve()}")
     elif args.command == "export":

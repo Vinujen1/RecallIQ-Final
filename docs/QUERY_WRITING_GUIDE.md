@@ -73,6 +73,12 @@ python -m evaluation.annotations import ab_review.csv --out data/annotations/que
 # 3. check
 python -m evaluation.annotations validate data/annotations/queries.jsonl
 ```
+**Working alone?** Instead of step 2, re-check your own drafts later (fresh eyes, ideally
+another day) and finalize them as single-annotator judgments. They are *not* reviewed and
+are evaluated only on request (`--include-single-annotator`); see `EVALUATION.md` § 3a.
+```bash
+python -m evaluation.annotations finalize data/annotations/vd.jsonl --annotator VD
+```
 Spreadsheet alternative: fill `data/annotations/templates/validation_queries.csv` or
 `test_queries.csv` (one row per query × relevant recall) and import them the same way.
 The importer rejects errors and writes nothing until they are fixed.

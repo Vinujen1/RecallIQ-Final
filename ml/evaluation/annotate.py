@@ -10,7 +10,10 @@ Workflow per query:
      Recalls may come from any split. List the recall the consumer most likely means
      first (or give it the highest grade): it is the query's anchor, and the query
      inherits the anchor's split.
-New queries are saved as reviewer_status "draft"; a second team member reviews them later.
+New queries are saved as reviewer_status "draft". Later, EITHER a second team member reviews
+them (status "reviewed"), OR, working alone, you re-check and finalize your own drafts with
+`python -m evaluation.annotations finalize <file> --annotator <INITIALS>` (status
+"single_annotator": evaluated only with --include-single-annotator, never counted as reviewed).
 """
 
 from __future__ import annotations
@@ -117,6 +120,9 @@ def run_session(
         query = " ".join(read("\nConsumer query (blank to finish): ").split())
         if not query:
             write(f"Saved {saved} new draft queries to {out_path}")
+            if saved:
+                write("Next: a second person reviews them, or re-check them yourself and run "
+                      f"`python -m evaluation.annotations finalize {out_path} --annotator {annotator}`")
             return saved
         write("Candidates (pooled from BM25 + MiniLM; also try /find):")
         for rid, source in candidate_pool(engine, query):

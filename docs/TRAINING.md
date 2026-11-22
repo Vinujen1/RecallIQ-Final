@@ -133,7 +133,11 @@ Each B/C pair differs only in `hard_negatives_per_pair` (tested). Results:
 `experiments/reports/seeds.md` (generated). Single-seed evidence (v1) is **not sufficient**
 to claim a B-vs-C difference.
 - Hard negatives beyond the 21 human-reviewed train pairs are filter-verified only.
-- One seed per model: B-vs-C differences smaller than seed-to-seed variation cannot be
-  claimed; run seeds 4111–4112 for the final report.
+- Multi-seed result (v2, completed 2026-11-16; `experiments/reports/seeds.md`, PROXY):
+  mean MRR@10 B 0.9731 (sd 0.0013) vs C 0.9754 (sd 0.0010); C − B per seed +0.0022,
+  +0.0036, +0.0011 (mean +0.0023, sd 0.0013). C was higher on all three seeds, but the
+  gap is small (~1.8 sd of the paired difference with n = 3) on a proxy near its ceiling:
+  a consistent direction, not evidence of a meaningful improvement. Recall@5 per-seed
+  differences change sign (−0.0026, +0.0064, +0.0026).
 - Runs were made from an uncommitted working tree (`git_dirty: true` in run_info.json);
   re-run from the tagged commit for the final submission.

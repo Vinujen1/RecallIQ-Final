@@ -130,6 +130,65 @@ templates: `data/annotations/templates/{validation,test}_queries.csv`.
 **Warnings**: missing fingerprint stamp, repeated query text, query nearly copying a
 relevant recall's title. Nothing is written when there are errors.
 
+### 3a. Single-annotator mode (one person writes and judges)
+
+Use this when only one team member is available to write and label queries. Nothing is
+presented as independently reviewed.
+
+| Status | Who checked the labels | Evaluated |
+|---|---|---|
+| `draft` | nobody yet | never |
+| `reviewed` | a **different** person (`reviewer` ≠ `annotator`) | by default |
+| `single_annotator` | only the author; `reviewer` must be **empty** | only with `--include-single-annotator` |
+| `rejected` | — | never |
+
+1. **Create** queries as usual (from `ml/`):
+   `python -m evaluation.annotate --annotator VD --out ../data/annotations/vd.jsonl`
+   Type each query before looking at results, find every relevant recall (`/find`,
+   `/show`), and grade it 1–3. Queries are saved as `draft`.
+2. **Self-check, then finalize.** Re-read each draft later (export it to CSV to look over
+   it if you like) and fix or reject anything doubtful. Then mark your own drafts:
+   `python -m evaluation.annotations finalize ../data/annotations/vd.jsonl --annotator VD`
+   (add `--ids VD-0001 VD-0002` to finalize only some). The command changes only drafts
+   whose `annotator` matches, never sets a reviewer, refuses unknown or other people's
+   ids, re-validates, and rewrites the file atomically, leaving all other fields as they were.
+3. **Evaluate on validation** (model selection):
+   `python -m evaluation.evaluate --split validation --include-single-annotator`
+   Without the flag, behaviour is unchanged: only `reviewed` queries are used. The error
+   message tells you when single-annotator queries were left out.
+4. **Final test** stays sealed: it still needs `--confirm-final-test`, and every run is
+   logged to `test_runs.jsonl` together with the annotation composition.
+
+Validation rules: a `single_annotator` query needs `annotator` initials and an empty
+`reviewer`. A `reviewed` query whose reviewer is the annotator, however the initials are
+spelled (`VD`, `vd`, `V D`), is still an **error**, so a self-check cannot be passed
+off as an independent review. Training (`ml/training`) keeps using `reviewed` train
+queries only.
+
+**What the report records** (`annotation_composition` in `eval_<split>.json`, also printed):
+`review_mode` (`independent` / `single_annotator` / `mixed`),
+`independently_reviewed_queries`, `single_annotator_queries`, `total_queries_evaluated`,
+`included_statuses`, `excluded_in_split` (e.g. drafts left out), `annotators`, `reviewers`,
+and the query ids for each status. Each model also gets `mean_by_review_status`, so a mixed
+run never shows only a blended number. Whenever single-annotator queries are included, a
+`LIMITATION` warning is added to `warnings`.
+
+**Limitations: why these metrics are preliminary.**
+- *No inter-annotator check.* One person's view of what is "relevant" and which grade fits
+  is never cross-checked, so agreement (e.g. Cohen's κ) cannot be measured and labelling
+  mistakes or personal interpretations go uncaught.
+- *Author bias.* The person who wrote the query knows what they meant. Their judgments can
+  be more lenient or narrower than a typical consumer's would be.
+- *Query style.* All queries reflect one person's wording, so they cover less of the
+  variety in how real consumers phrase questions.
+- *Familiarity with the systems.* An annotator who has seen BM25/MiniLM results while
+  building the project may write queries that suit them, even unintentionally (this adds
+  to the pooling bias below).
+Report single-annotator results as **preliminary, single-annotator relevance judgments**
+alongside the query count. Do not describe them as independently validated. If a teammate
+becomes available, have them review a sample (`export` → set `reviewed` + their initials →
+`import`) and report both numbers.
+
 **Pooling bias:** candidates come from BM25 + MiniLM, so judgments favour documents those
 systems retrieve; unjudged documents count as non-relevant. Before the final Model B
 comparison, re-pool: have reviewers judge Model B's top 10 for every query as well.
@@ -144,7 +203,8 @@ For a query with relevant set R (grades g ≥ 1) and a ranked list:
 | MRR@10 | 1 / rank of the first relevant recall in the top 10, else 0 |
 | nDCG@10 | DCG@10 / IDCG@10, gain 2^g − 1, discount log2(rank + 1); IDCG from all judged relevant, truncated at 10 |
 
-Means over reviewed queries are reported with `num_queries`; < 30 queries triggers a
+Means over evaluated queries are reported with `num_queries` (and the review-status
+composition, see § 3a); < 30 queries triggers a
 "may be noise" warning. Hand-computed unit tests cover binary and graded nDCG (e.g. binary
 example = 0.693426), multiple relevant documents, cutoffs and invalid inputs.
 
@@ -159,7 +219,9 @@ python -m evaluation.annotate --annotator AB --out data/annotations/ab.jsonl
 python -m evaluation.annotations validate data/annotations/queries.jsonl
 python -m evaluation.annotations export data/annotations/ab.jsonl --out ab_review.csv
 python -m evaluation.annotations import ab_review.csv --out data/annotations/queries.jsonl --merge
+python -m evaluation.annotations finalize data/annotations/vd.jsonl --annotator VD   # working alone: draft -> single_annotator
 python -m evaluation.evaluate --split validation         # BM25 vs MiniLM, same queries + 1,000-doc index
+python -m evaluation.evaluate --split validation --include-single-annotator   # also single-annotator queries (reported separately)
 python -m evaluation.evaluate --split test --confirm-final-test   # final report only (audit-logged)
 ```
 
